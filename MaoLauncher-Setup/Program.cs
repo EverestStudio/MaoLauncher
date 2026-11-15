@@ -69,6 +69,8 @@ internal sealed class SetupForm : Form
         MinimizeBox = false;
         BackColor = Color.FromArgb(13, 10, 17);
         DoubleBuffered = true;
+        ApplyRoundedCorners();
+        Resize += (_, _) => ApplyRoundedCorners();
 
         var background = new BackgroundCanvas(LoadBanner())
         {
@@ -154,7 +156,7 @@ internal sealed class SetupForm : Form
         background.Controls.Add(_percent);
 
         _progress.Location = new Point(56, 309);
-        _progress.Size = new Size(648, 7);
+        _progress.Size = new Size(648, 12);
         background.Controls.Add(_progress);
 
         _install.Location = new Point(56, 350);
@@ -180,6 +182,26 @@ internal sealed class SetupForm : Form
         _install.Click += async (_, _) => await InstallAsync();
         _cancel.Click += (_, _) => _cancellation?.Cancel();
         FormClosing += (_, _) => _cancellation?.Cancel();
+    }
+
+    private void ApplyRoundedCorners()
+    {
+        if (Width <= 0 || Height <= 0) return;
+        using var path = CreateRoundedPath(new Rectangle(0, 0, Width, Height), 20);
+        Region?.Dispose();
+        Region = new Region(path);
+    }
+
+    private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+    {
+        var diameter = radius * 2;
+        var path = new GraphicsPath();
+        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     private void StartWindowAnimation(int direction)
@@ -251,6 +273,12 @@ internal sealed class SetupForm : Form
         };
         button.FlatAppearance.MouseOverBackColor = primary ? Color.FromArgb(132, 76, 168) : Color.FromArgb(52, 40, 65);
         button.FlatAppearance.MouseDownBackColor = Color.FromArgb(82, 45, 108);
+        button.Resize += (_, _) =>
+        {
+            using var path = CreateRoundedPath(new Rectangle(0, 0, button.Width, button.Height), 12);
+            button.Region?.Dispose();
+            button.Region = new Region(path);
+        };
         return button;
     }
 
@@ -268,7 +296,13 @@ internal sealed class SetupForm : Form
             Cursor = Cursors.Hand,
             UseVisualStyleBackColor = false
         };
-        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(100, 130, 90, 150);
+        button.FlatAppearance.MouseOverBackColor = text == "×"
+            ? Color.FromArgb(232, 55, 65)
+            : Color.FromArgb(100, 130, 90, 150);
+        button.FlatAppearance.MouseDownBackColor = text == "×"
+            ? Color.FromArgb(190, 38, 48)
+            : Color.FromArgb(130, 145, 120, 160);
+        button.Font = new Font("Segoe UI", text == "×" ? 15F : 13F);
         return button;
     }
 
@@ -494,14 +528,36 @@ internal sealed class ProgressTrack : Control
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
     }
 
+    private static GraphicsPath CreateProgressPath(Rectangle bounds)
+    {
+        var path = new GraphicsPath();
+        var diameter = Math.Min(bounds.Height, bounds.Width);
+        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 90, 180);
+        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 180);
+        path.CloseFigure();
+        return path;
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        if (ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
+        var trackBounds = new Rectangle(0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
+        using var trackPath = CreateProgressPath(trackBounds);
         using var track = new SolidBrush(Color.FromArgb(90, 230, 210, 245));
-        using var fill = new LinearGradientBrush(ClientRectangle, Color.FromArgb(164, 103, 206), Color.FromArgb(220, 166, 255), LinearGradientMode.Horizontal);
-        e.Graphics.FillRectangle(track, ClientRectangle);
+        e.Graphics.FillPath(track, trackPath);
+
         var width = (int)(ClientSize.Width * _value / 100f);
-        if (width > 0) e.Graphics.FillRectangle(fill, 0, 0, width, ClientSize.Height);
+        if (width > 0)
+        {
+            var fillBounds = new Rectangle(0, 0, Math.Min(width, ClientSize.Width) - 1, ClientSize.Height - 1);
+            if (fillBounds.Width > 0)
+            {
+                using var fillPath = CreateProgressPath(fillBounds);
+                using var fill = new LinearGradientBrush(fillBounds, Color.FromArgb(164, 103, 206), Color.FromArgb(220, 166, 255), LinearGradientMode.Horizontal);
+                e.Graphics.FillPath(fill, fillPath);
+            }
+        }
     }
 }
 
