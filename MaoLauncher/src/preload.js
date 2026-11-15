@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('launcher', Object.freeze({
+  getVersion: () => ipcRenderer.invoke('app:version'),
   readSettings: () => ipcRenderer.invoke('settings:read'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   addProfile: (name) => ipcRenderer.invoke('profiles:add', name),
