@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 
 const GAME_VERSION = '26.2';
 const SERVER = 'mc.maopickme.ru';
-const NEWS_FEED_URL = 'https://maopickme.ru/api/news.php';
+const NEWS_FEED_URL = 'https://hm572194.webhm.cloud/api/news.php';
 const LAUNCHER_VERSION = app.getVersion();
 const PROJECTS = [
   ['fabric-api', 'Fabric API'], ['modmenu', 'Mod Menu'], ['emotecraft', 'EmoteCraft'],
