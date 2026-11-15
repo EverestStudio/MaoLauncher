@@ -92,7 +92,7 @@ jobs:
           if (!$tag) { $tag = "${{ github.ref_name }}" }
           gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
 ) { throw "Release tag must look like v1.2.3." }
-          npm version $version --no-git-tag-version --prefix MaoLauncher
+          npm pkg set version=$version --prefix MaoLauncher
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
