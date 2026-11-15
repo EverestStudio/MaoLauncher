@@ -42,7 +42,7 @@ internal sealed class SetupForm : Form
         Font = new Font("Segoe UI Semibold", 9F),
         BackColor = Color.Transparent
     };
-    private readonly Button _install = CreateButton("Установить MaoLauncher", true);
+    private readonly Button _install = CreateButton("Проверить и запустить", true);
     private readonly Button _cancel = CreateButton("Отмена", false);
     private readonly Button _close = CreateChromeButton("×");
     private readonly Button _minimize = CreateChromeButton("—");
@@ -182,6 +182,7 @@ internal sealed class SetupForm : Form
         _install.Click += async (_, _) => await InstallAsync();
         _cancel.Click += (_, _) => _cancellation?.Cancel();
         FormClosing += (_, _) => _cancellation?.Cancel();
+        Shown += async (_, _) => await InstallAsync();
     }
 
     private void ApplyRoundedCorners()
@@ -316,6 +317,7 @@ internal sealed class SetupForm : Form
 
     private async Task InstallAsync()
     {
+        if (_cancellation is not null) return;
         _cancellation = new CancellationTokenSource();
         var token = _cancellation.Token;
         SetBusy(true);
@@ -324,6 +326,15 @@ internal sealed class SetupForm : Form
 
         try
         {
+            SetStatus("Подготавливаем ярлык MaoLauncher…");
+            var setupExecutable = EnsurePersistentSetupCopy();
+            TryCreateDesktopShortcut(setupExecutable);
+
+            var installRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Programs", "MaoLauncher");
+            var installedExe = FindInstalledLauncher(installRoot);
+
             SetStatus("Проверяем последнюю версию на GitHub…");
             using var releaseResponse = await Http.GetAsync(
                 $"https://api.github.com/repos/{Repository}/releases/latest",
@@ -335,7 +346,30 @@ internal sealed class SetupForm : Form
             using var releaseJson = JsonDocument.Parse(await releaseResponse.Content.ReadAsStreamAsync(token));
             var root = releaseJson.RootElement;
             var version = root.TryGetProperty("tag_name", out var tag) ? tag.GetString() ?? "latest" : "latest";
+            if (!Regex.IsMatch(version, @"^v?\d+\.\d+\.\d+$"))
+                throw new InvalidDataException("У последнего релиза некорректный номер версии.");
+            version = version.TrimStart('v', 'V');
+
+            var versionFile = Path.Combine(installRoot, "launcher.version");
+            var installedVersion = File.Exists(versionFile) ? File.ReadAllText(versionFile).Trim() : "";
             var assets = root.GetProperty("assets").EnumerateArray().ToArray();
+
+            if (installedExe is not null &&
+                Regex.IsMatch(installedVersion, @"^\d+\.\d+\.\d+$") &&
+                CompareVersions(installedVersion, version) >= 0)
+            {
+                SetStatus("Обновлений нет. Запускаем MaoLauncher…");
+                SetProgress(100);
+                Process.Start(new ProcessStartInfo(installedExe)
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = Path.GetDirectoryName(installedExe)!
+                });
+                await Task.Delay(350, token);
+                Close();
+                return;
+            }
+
             var archive = assets.FirstOrDefault(a =>
             {
                 var name = a.GetProperty("name").GetString() ?? "";
@@ -356,7 +390,7 @@ internal sealed class SetupForm : Form
             Directory.CreateDirectory(work);
             var zipPath = Path.Combine(work, archiveName);
 
-            SetStatus("Скачиваем MaoLauncher " + version + "…");
+            SetStatus((installedExe is null ? "Устанавливаем MaoLauncher " : "Доступно обновление. Скачиваем MaoLauncher ") + version + "…");
             await DownloadFileAsync(archiveUrl, zipPath, token);
 
             SetStatus("Проверяем SHA-256…");
@@ -372,7 +406,7 @@ internal sealed class SetupForm : Form
                     throw new InvalidDataException("SHA-256 архива не совпадает. Установка остановлена.");
             }
 
-            SetStatus("Распаковываем файлы…");
+            SetStatus("Распаковываем новую версию…");
             var extracted = Path.Combine(work, "extracted");
             Directory.CreateDirectory(extracted);
             ExtractZipSafely(zipPath, extracted);
@@ -380,8 +414,10 @@ internal sealed class SetupForm : Form
             if (executable is null)
                 throw new InvalidDataException("В архиве не найден MaoLauncher.exe.");
 
-            SetStatus("Устанавливаем приложение…");
-            var installRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "MaoLauncher");
+            if (!await CloseInstalledLauncherAsync(installRoot, token))
+                throw new InvalidOperationException("Перед обновлением закрой MaoLauncher и повторно запусти установщик.");
+
+            SetStatus("Заменяем файлы лаунчера…");
             var parent = Path.GetDirectoryName(installRoot)!;
             Directory.CreateDirectory(parent);
             var stagedInstall = Path.Combine(parent, "MaoLauncher.new-" + Guid.NewGuid().ToString("N"));
@@ -393,34 +429,37 @@ internal sealed class SetupForm : Form
             try
             {
                 Directory.Move(stagedInstall, installRoot);
-                if (Directory.Exists(backup)) Directory.Delete(backup, true);
+                File.WriteAllText(Path.Combine(installRoot, "launcher.version"), version);
+                installedExe = FindInstalledLauncher(installRoot)
+                    ?? throw new InvalidDataException("После установки не найден MaoLauncher.exe.");
             }
             catch
             {
-                if (!Directory.Exists(installRoot) && Directory.Exists(backup))
-                    Directory.Move(backup, installRoot);
+                try { if (Directory.Exists(installRoot)) Directory.Delete(installRoot, true); } catch { }
+                if (Directory.Exists(backup)) Directory.Move(backup, installRoot);
                 throw;
             }
+            try { if (Directory.Exists(backup)) Directory.Delete(backup, true); } catch { }
 
-            var installedExe = Path.Combine(installRoot, "MaoLauncher.exe");
-            if (!File.Exists(installedExe))
-                installedExe = Directory.GetFiles(installRoot, "MaoLauncher.exe", SearchOption.AllDirectories).First();
-
-            TryCreateDesktopShortcut(installedExe);
-            SetStatus("Установка завершена. Запускаем MaoLauncher…");
+            TryCreateDesktopShortcut(setupExecutable);
+            SetStatus("Готово! Запускаем MaoLauncher…");
             SetProgress(100);
-            Process.Start(new ProcessStartInfo(installedExe) { UseShellExecute = true });
-            await Task.Delay(350);
+            Process.Start(new ProcessStartInfo(installedExe)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = installRoot
+            });
+            await Task.Delay(350, token);
             Close();
         }
         catch (OperationCanceledException)
         {
-            SetStatus("Установка отменена.");
+            SetStatus("Операция отменена.");
         }
         catch (Exception ex)
         {
-            SetStatus("Не удалось установить MaoLauncher.");
-            MessageBox.Show(this, ex.Message, "Ошибка установки", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Не удалось запустить или обновить MaoLauncher.");
+            MessageBox.Show(this, ex.Message, "MaoLauncher Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -432,6 +471,77 @@ internal sealed class SetupForm : Form
             _cancellation = null;
             if (!IsDisposed) SetBusy(false);
         }
+    }
+
+    private static string EnsurePersistentSetupCopy()
+    {
+        var source = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Не удалось определить расположение установщика.");
+        var setupDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs", "MaoLauncherSetup");
+        Directory.CreateDirectory(setupDirectory);
+        var destination = Path.Combine(setupDirectory, "MaoLauncher-Setup.exe");
+        if (!string.Equals(Path.GetFullPath(source), Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase))
+        {
+            var temporary = destination + ".new";
+            try
+            {
+                File.Copy(source, temporary, true);
+                File.Move(temporary, destination, true);
+            }
+            catch
+            {
+                try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+                if (!File.Exists(destination)) throw;
+            }
+        }
+        return destination;
+    }
+
+    private static string? FindInstalledLauncher(string installRoot)
+    {
+        if (!Directory.Exists(installRoot)) return null;
+        return Directory.GetFiles(installRoot, "MaoLauncher.exe", SearchOption.AllDirectories).FirstOrDefault();
+    }
+
+    private static int CompareVersions(string left, string right)
+    {
+        if (!Version.TryParse(left, out var a) || !Version.TryParse(right, out var b))
+            throw new InvalidDataException("Не удалось сравнить версии MaoLauncher.");
+        return a.CompareTo(b);
+    }
+
+    private async Task<bool> CloseInstalledLauncherAsync(string installRoot, CancellationToken token)
+    {
+        if (!Directory.Exists(installRoot)) return true;
+        var processes = Process.GetProcessesByName("MaoLauncher");
+        foreach (var process in processes)
+        {
+            using (process)
+            {
+                string? processPath = null;
+                try { processPath = process.MainModule?.FileName; } catch { }
+                if (processPath is not null &&
+                    !processPath.StartsWith(installRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (process.MainWindowHandle != IntPtr.Zero)
+                    process.CloseMainWindow();
+
+                for (var attempt = 0; attempt < 40 && !process.HasExited; attempt++)
+                    await Task.Delay(500, token);
+
+                if (!process.HasExited)
+                {
+                    MessageBox.Show(this,
+                        "Сначала закрой MaoLauncher (в том числе из системного трея), затем нажми «Повторить» и запусти установщик ещё раз.",
+                        "Нужно закрыть MaoLauncher", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private async Task DownloadFileAsync(string url, string destination, CancellationToken token)
@@ -472,7 +582,7 @@ internal sealed class SetupForm : Form
     {
         _install.Enabled = !busy;
         _cancel.Enabled = busy;
-        _install.Text = busy ? "Установка…" : "Установить MaoLauncher";
+        _install.Text = busy ? "Проверяем…" : "Проверить и запустить";
     }
 
     private static void ExtractZipSafely(string zipPath, string destination)
@@ -494,7 +604,7 @@ internal sealed class SetupForm : Form
         }
     }
 
-    private static void TryCreateDesktopShortcut(string executable)
+    private static void TryCreateDesktopShortcut(string setupExecutable)
     {
         try
         {
@@ -504,9 +614,9 @@ internal sealed class SetupForm : Form
             if (shellType is null) return;
             dynamic shell = Activator.CreateInstance(shellType)!;
             dynamic shortcut = shell.CreateShortcut(shortcutPath);
-            shortcut.TargetPath = executable;
-            shortcut.WorkingDirectory = Path.GetDirectoryName(executable);
-            shortcut.Description = "MaoLauncher";
+            shortcut.TargetPath = setupExecutable;
+            shortcut.WorkingDirectory = Path.GetDirectoryName(setupExecutable);
+            shortcut.Description = "Проверка обновлений и запуск MaoLauncher";
             shortcut.Save();
         }
         catch { }
