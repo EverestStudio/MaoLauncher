@@ -175,7 +175,9 @@ internal sealed class SetupForm : Form
         try
         {
             using var stream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-banner.png");
-            return stream is null ? null : Image.FromStream(stream);
+            if (stream is null) return null;
+            using var image = Image.FromStream(stream);
+            return new Bitmap(image);
         }
         catch { return null; }
     }
@@ -441,7 +443,7 @@ internal sealed class ProgressTrack : Control
 
     public ProgressTrack()
     {
-        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
     }
 
     protected override void OnPaint(PaintEventArgs e)
