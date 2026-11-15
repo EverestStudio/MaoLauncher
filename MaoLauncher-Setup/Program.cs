@@ -47,6 +47,9 @@ internal sealed class SetupForm : Form
     private readonly Button _close = CreateChromeButton("×");
     private readonly Button _minimize = CreateChromeButton("—");
     private CancellationTokenSource? _cancellation;
+    private readonly System.Windows.Forms.Timer _windowAnimation = new() { Interval = 15 };
+    private bool _wasMinimized;
+    private int _animationDirection;
 
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
@@ -97,7 +100,16 @@ internal sealed class SetupForm : Form
         _close.Location = new Point(718, 0);
         topBar.Controls.Add(_minimize);
         topBar.Controls.Add(_close);
-        _minimize.Click += (_, _) => WindowState = FormWindowState.Minimized;
+        _minimize.Click += (_, _) => StartWindowAnimation(-1);
+        _windowAnimation.Tick += AnimateWindowOpacity;
+        Resize += (_, _) =>
+        {
+            if (_wasMinimized && WindowState == FormWindowState.Normal && _animationDirection != 1)
+            {
+                Opacity = 0;
+                StartWindowAnimation(1);
+            }
+        };
         _close.Click += (_, _) => Close();
 
         var eyebrow = new Label
@@ -168,6 +180,41 @@ internal sealed class SetupForm : Form
         _install.Click += async (_, _) => await InstallAsync();
         _cancel.Click += (_, _) => _cancellation?.Cancel();
         FormClosing += (_, _) => _cancellation?.Cancel();
+    }
+
+    private void StartWindowAnimation(int direction)
+    {
+        _windowAnimation.Stop();
+        _animationDirection = direction;
+        if (direction < 0)
+        {
+            _minimize.Enabled = false;
+        }
+        else
+        {
+            Opacity = 0;
+        }
+        _windowAnimation.Start();
+    }
+
+    private void AnimateWindowOpacity(object? sender, EventArgs e)
+    {
+        Opacity = Math.Clamp(Opacity + (_animationDirection * 0.12), 0, 1);
+        if ((_animationDirection < 0 && Opacity <= 0) || (_animationDirection > 0 && Opacity >= 1))
+        {
+            _windowAnimation.Stop();
+            Opacity = _animationDirection < 0 ? 0 : 1;
+            if (_animationDirection < 0)
+            {
+                _wasMinimized = true;
+                WindowState = FormWindowState.Minimized;
+                _minimize.Enabled = true;
+            }
+            else
+            {
+                _wasMinimized = false;
+            }
+        }
     }
 
     private static Image? LoadBanner()
