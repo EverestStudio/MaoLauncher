@@ -310,10 +310,12 @@ async function latestLauncherRelease() {
   return { version, archive, checksum };
 }
 async function checkLauncherUpdate() {
+  if (!app.isPackaged) return { currentVersion: LAUNCHER_VERSION, latestVersion: LAUNCHER_VERSION, available: false };
   const release = await latestLauncherRelease();
   return { currentVersion: LAUNCHER_VERSION, latestVersion: release.version, available: compareVersions(release.version, LAUNCHER_VERSION) > 0 };
 }
 async function installLauncherUpdate() {
+  if (!app.isPackaged) throw new Error('Обновление доступно только в установленной версии MaoLauncher.');
   if (process.platform !== 'win32') throw new Error('Обновление лаунчера пока поддерживается только в Windows.');
   if (installPromise) throw new Error('Дождитесь завершения установки Minecraft перед обновлением лаунчера.');
   const release = await latestLauncherRelease();
