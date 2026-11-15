@@ -419,11 +419,11 @@ async function installLauncherUpdate() {
     const installRoot = path.dirname(process.execPath), backup = installRoot + '.update-backup', script = path.join(work, 'apply-update.ps1');
     const scriptText = [
       "$ErrorActionPreference = 'Stop'",
-      '$processId = ' + process.pid,
+      '$launcherProcessId = ' + process.pid,
       '$install = ' + psQuote(installRoot),
       '$staged = ' + psQuote(staged),
       '$backup = ' + psQuote(backup),
-      'while (Get-Process -Id $processId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 400 }',
+      'while (Get-Process -Id $launcherProcessId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 400 }',
       'try {',
       '  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }',
       '  if (Test-Path -LiteralPath $install) { Move-Item -LiteralPath $install -Destination $backup }',
