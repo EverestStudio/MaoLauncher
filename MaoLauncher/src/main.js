@@ -319,7 +319,7 @@ async function runMinecraft() {
 }
 async function createWindow() {
   mainWindow = new BrowserWindow({ width: 1280, height: 820, minWidth: 760, minHeight: 620, title: 'MaoLauncher', icon: path.join(__dirname, 'assets', 'mao-icon.png'), backgroundColor: '#100e16', frame: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
-  mainWindow.on('closed', () => { mainWindow = null; });  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url.startsWith('https://')) shell.openExternal(url); return { action: 'deny' }; });
   await mainWindow.loadFile(path.join(__dirname, 'index.html'));
 }
