@@ -12,6 +12,7 @@ const execFileAsync = promisify(execFile);
 
 const GAME_VERSION = '26.2';
 const SERVER = 'mc.maopickme.ru';
+const NEWS_FEED_URL = 'https://maopickme.ru/api/news.php';
 const LAUNCHER_VERSION = app.getVersion();
 const PROJECTS = [
   ['fabric-api', 'Fabric API'], ['modmenu', 'Mod Menu'], ['emotecraft', 'EmoteCraft'],
@@ -28,6 +29,9 @@ let quitting = false;
 let settingsPath;
 let gameRoot;
 let installPromise;
+let newsCache = [];
+let newsCacheAt = 0;
+let newsRequest = null;
 
 function readSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsPath, 'utf8')) }; }
@@ -48,6 +52,36 @@ async function api(url) {
   if (!response.ok) throw new Error(`HTTP ${response.status} при запросе к ${new URL(url).hostname}`);
   return response.json();
 }
+
+async function fetchServerNews() {
+  if (newsCacheAt && Date.now() - newsCacheAt < 10 * 60 * 1000) return { news: newsCache };
+  if (newsRequest) return newsRequest;
+  newsRequest = (async () => {
+    try {
+      const response = await fetch(NEWS_FEED_URL, { headers: { 'Accept': 'application/json', 'User-Agent': 'MaoLauncher/' + LAUNCHER_VERSION }, signal: AbortSignal.timeout(12000) });
+      if (!response.ok) throw new Error('Источник новостей вернул HTTP ' + response.status + '.');
+      const payload = await response.json();
+      if (!payload || payload.ok !== true || !Array.isArray(payload.news)) throw new Error('Источник новостей вернул неверный формат.');
+      const clean = payload.news.filter(item => item && typeof item.title === 'string' && typeof item.text === 'string')
+        .slice(0, 10).map(item => ({
+          title: item.title.slice(0, 160),
+          text: item.text.slice(0, 1200),
+          date: typeof item.date === 'string' ? item.date.slice(0, 32) : '',
+          tag: 'ВК · СООБЩЕСТВО',
+          image: typeof item.image === 'string' && item.image.startsWith('https://') ? item.image : '',
+          url: typeof item.url === 'string' && /^https:\/\/(vk\.ru|vk\.com)\//i.test(item.url) ? item.url : ''
+        }));
+      newsCache = clean;
+      newsCacheAt = Date.now();
+      return { news: newsCache };
+    } catch (error) {
+      if (newsCache.length) return { news: newsCache, stale: true };
+      throw error;
+    } finally { newsRequest = null; }
+  })();
+  return newsRequest;
+}
+
 function emit(channel, data) { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data); }
 function profileUuid(name) {
   const bytes = crypto.createHash('md5').update(`OfflinePlayer:${name}`).digest();
@@ -447,6 +481,7 @@ app.whenReady().then(async () => {
     return { launcherVersion: LAUNCHER_VERSION, latestLauncherVersion: launcher.latestVersion, launcherUpdate: launcher.available, gameUpdate: false, modUpdates: updates, gameVersion: GAME_VERSION, launcherUpdatesAvailable: launcher.available, updateFeedConfigured: true, loaderManifest: settings.installManifest };
   });
   ipcMain.handle('launcher:update-install', () => installLauncherUpdate());
+  ipcMain.handle('news:get', () => fetchServerNews());
   ipcMain.handle('server:status', () => serverStatus());
   ipcMain.handle('window:action', (_event, action) => {
     if (!mainWindow) return false;
