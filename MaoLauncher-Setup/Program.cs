@@ -44,12 +44,7 @@ internal sealed class SetupForm : Form
     };
     private readonly Button _install = CreateButton("Проверить и запустить", true);
     private readonly Button _cancel = CreateButton("Отмена", false);
-    private readonly Button _close = CreateChromeButton("×");
-    private readonly Button _minimize = CreateChromeButton("—");
     private CancellationTokenSource? _cancellation;
-    private readonly System.Windows.Forms.Timer _windowAnimation = new() { Interval = 15 };
-    private bool _wasMinimized;
-    private int _animationDirection;
 
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
@@ -64,13 +59,12 @@ internal sealed class SetupForm : Form
         MinimumSize = new Size(760, 440);
         MaximumSize = new Size(760, 440);
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.None;
+        FormBorderStyle = FormBorderStyle.FixedSingle;
+        ControlBox = true;
         MaximizeBox = false;
-        MinimizeBox = false;
+        MinimizeBox = true;
         BackColor = Color.FromArgb(13, 10, 17);
         DoubleBuffered = true;
-        ApplyRoundedCorners();
-        Resize += (_, _) => ApplyRoundedCorners();
 
         var background = new BackgroundCanvas(LoadBanner())
         {
@@ -98,21 +92,6 @@ internal sealed class SetupForm : Form
         topBar.Controls.Add(topTitle);
         topTitle.MouseDown += DragWindow;
 
-        _minimize.Location = new Point(678, 0);
-        _close.Location = new Point(718, 0);
-        topBar.Controls.Add(_minimize);
-        topBar.Controls.Add(_close);
-        _minimize.Click += (_, _) => StartWindowAnimation(-1);
-        _windowAnimation.Tick += AnimateWindowOpacity;
-        Resize += (_, _) =>
-        {
-            if (_wasMinimized && WindowState == FormWindowState.Normal && _animationDirection != 1)
-            {
-                Opacity = 0;
-                StartWindowAnimation(1);
-            }
-        };
-        _close.Click += (_, _) => Close();
 
         var eyebrow = new Label
         {
@@ -185,14 +164,6 @@ internal sealed class SetupForm : Form
         Shown += async (_, _) => await InstallAsync();
     }
 
-    private void ApplyRoundedCorners()
-    {
-        if (Width <= 0 || Height <= 0) return;
-        using var path = CreateRoundedPath(new Rectangle(0, 0, Width, Height), 20);
-        Region?.Dispose();
-        Region = new Region(path);
-    }
-
     private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
     {
         var diameter = radius * 2;
@@ -203,41 +174,6 @@ internal sealed class SetupForm : Form
         path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
         path.CloseFigure();
         return path;
-    }
-
-    private void StartWindowAnimation(int direction)
-    {
-        _windowAnimation.Stop();
-        _animationDirection = direction;
-        if (direction < 0)
-        {
-            _minimize.Enabled = false;
-        }
-        else
-        {
-            Opacity = 0;
-        }
-        _windowAnimation.Start();
-    }
-
-    private void AnimateWindowOpacity(object? sender, EventArgs e)
-    {
-        Opacity = Math.Clamp(Opacity + (_animationDirection * 0.12), 0, 1);
-        if ((_animationDirection < 0 && Opacity <= 0) || (_animationDirection > 0 && Opacity >= 1))
-        {
-            _windowAnimation.Stop();
-            Opacity = _animationDirection < 0 ? 0 : 1;
-            if (_animationDirection < 0)
-            {
-                _wasMinimized = true;
-                WindowState = FormWindowState.Minimized;
-                _minimize.Enabled = true;
-            }
-            else
-            {
-                _wasMinimized = false;
-            }
-        }
     }
 
     private static Image? LoadBanner()
@@ -280,30 +216,6 @@ internal sealed class SetupForm : Form
             button.Region?.Dispose();
             button.Region = new Region(path);
         };
-        return button;
-    }
-
-    private static Button CreateChromeButton(string text)
-    {
-        var button = new Button
-        {
-            Text = text,
-            Size = new Size(40, 42),
-            FlatStyle = FlatStyle.Flat,
-            FlatAppearance = { BorderSize = 0 },
-            BackColor = Color.Transparent,
-            ForeColor = Color.FromArgb(220, 210, 230),
-            Font = new Font("Segoe UI", 11F),
-            Cursor = Cursors.Hand,
-            UseVisualStyleBackColor = false
-        };
-        button.FlatAppearance.MouseOverBackColor = text == "×"
-            ? Color.FromArgb(232, 55, 65)
-            : Color.FromArgb(100, 130, 90, 150);
-        button.FlatAppearance.MouseDownBackColor = text == "×"
-            ? Color.FromArgb(190, 38, 48)
-            : Color.FromArgb(130, 145, 120, 160);
-        button.Font = new Font("Segoe UI", text == "×" ? 15F : 13F);
         return button;
     }
 
