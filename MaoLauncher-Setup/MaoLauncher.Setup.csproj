@@ -8,4 +8,10 @@
     <AssemblyName>MaoLauncher-Setup</AssemblyName>
     <RootNamespace>MaoLauncher.Setup</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\MaoLauncher\src\assets\mao-banner.png"
+                      Link="mao-banner.png"
+                      LogicalName="MaoLauncher.Setup.mao-banner.png" />
+  </ItemGroup>
 </Project>
