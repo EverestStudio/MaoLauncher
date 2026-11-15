@@ -432,14 +432,14 @@ internal sealed class SetupForm : Form
                 File.WriteAllText(Path.Combine(installRoot, "launcher.version"), version);
                 installedExe = FindInstalledLauncher(installRoot)
                     ?? throw new InvalidDataException("После установки не найден MaoLauncher.exe.");
-                if (Directory.Exists(backup)) Directory.Delete(backup, true);
             }
             catch
             {
-                if (!Directory.Exists(installRoot) && Directory.Exists(backup))
-                    Directory.Move(backup, installRoot);
+                try { if (Directory.Exists(installRoot)) Directory.Delete(installRoot, true); } catch { }
+                if (Directory.Exists(backup)) Directory.Move(backup, installRoot);
                 throw;
             }
+            try { if (Directory.Exists(backup)) Directory.Delete(backup, true); } catch { }
 
             TryCreateDesktopShortcut(setupExecutable);
             SetStatus("Готово! Запускаем MaoLauncher…");
