@@ -1,0 +1,6 @@
+<?php
+// Rename this file to news-config.php and enter your VK application service key.
+// Keep this file private. The included .htaccess blocks direct web access.
+return [
+    'vk_service_key' => 'PASTE_VK_SERVICE_KEY_HERE',
+];

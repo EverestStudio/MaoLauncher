@@ -114,8 +114,30 @@ function configureNavigation() {
 const safe = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\"', '&quot;').replaceAll("'", '&#39;');
 function notify(message, error = false) { const toast = byId('toast'); toast.textContent = message; toast.classList.toggle('error', error); toast.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4200); }
 function renderNews(news) {
-  if (!news.length) return "<article class='news'><div class='newsIcon'>✦</div><div class='newsText'><span class='tag'>НОВОСТИ</span><h3>Пока нет новостей</h3><p>Публичный источник новостей сервера не настроен.</p></div></article>";
-  return news.map(item => "<article class='news'><div class='newsIcon'>" + (item.image ? "<img alt='' src='" + safe(item.image) + "'>" : safe(item.icon || '✦')) + "</div><div class='newsText'><span class='tag'>" + safe(item.tag || 'НОВОСТЬ') + ' · ' + safe(item.date || '') + "</span><h3>" + safe(item.title) + "</h3><p>" + safe(item.text) + "</p></div></article>").join('');
+  if (!news.length) return "<article class='news'><div class='newsIcon'>✦</div><div class='newsText'><span class='tag'>НОВОСТИ</span><h3>Пока нет новостей</h3><p>Новости сообщества появятся здесь после загрузки.</p></div></article>";
+  return news.map(item => {
+    const content = "<div class='newsIcon'>" + (item.image ? "<img alt='' src='" + safe(item.image) + "'>" : safe(item.icon || '✦')) + "</div><div class='newsText'><span class='tag'>" + safe(item.tag || 'НОВОСТЬ') + ' · ' + safe(item.date || '') + "</span><h3>" + safe(item.title) + "</h3><p>" + safe(item.text) + "</p></div>";
+    return item.url && /^https:\/\/(vk\.ru|vk\.com)\//i.test(item.url)
+      ? "<a class='news newsLink' href='" + safe(item.url) + "' target='_blank' rel='noopener noreferrer'>" + content + "</a>"
+      : "<article class='news'>" + content + "</article>";
+  }).join('');
+}
+async function loadNews() {
+  try {
+    const result = await window.launcher.getNews();
+    config.news = Array.isArray(result.news) ? result.news : [];
+    render();
+  } catch (error) {
+    if (!config.news?.length) config.news = [];
+    render();
+    const message = 'Не удалось загрузить новости ВК: ' + error.message;
+    const home = byId('homeNews'), all = byId('allNews');
+    if (!config.news.length) {
+      const note = "<p class='newsLoadError'>" + safe(message) + "</p>";
+      home.insertAdjacentHTML('beforeend', note);
+      all.insertAdjacentHTML('beforeend', note);
+    }
+  }
 }
 function renderProfiles() {
   const active = config.profiles.find(profile => profile.name === config.activeProfile);
@@ -180,11 +202,11 @@ async function copyAddress() { await navigator.clipboard.writeText('mc.maopickme
 ['copyAddress', 'copySide', 'copyDetail'].forEach(id => byId(id)?.addEventListener('click', copyAddress)); byId('refreshServer').addEventListener('click', checkServer);
 for (const [id, key] of [['memorySetting', 'memory'], ['themeSetting', 'theme'], ['languageSetting', 'language']]) byId(id).addEventListener('change', async e => { config = await window.launcher.saveSettings({ ...config, [key]: key === 'memory' ? Number(e.target.value) : e.target.value }); render(); });
 byId('openFolder').addEventListener('click', async () => { const error = await window.launcher.openGameFolder(); if (error) notify(error, true); });
-async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); if (hint) hint.textContent = launcherUpdateAvailable ? 'Доступна новая версия MaoLauncher ' + r.latestLauncherVersion + '. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'MaoLauncher и установленные моды обновлены до последних версий.'; if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
+async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); const versionLabel = byId('launcherVersionLabel'); if (versionLabel && r.launcherVersion) versionLabel.textContent = 'MaoLauncher v' + r.launcherVersion; gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); if (hint) hint.textContent = launcherUpdateAvailable ? 'Доступна новая версия MaoLauncher ' + r.latestLauncherVersion + '. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'MaoLauncher и установленные моды обновлены до последних версий.'; if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
 byId('checkUpdates')?.addEventListener('click', () => checkUpdates());
 byId('minimizeWindow').addEventListener('click', () => window.launcher.windowAction('minimize')); byId('maximizeWindow')?.addEventListener('click', () => window.launcher.windowAction('maximize')); byId('closeWindow').addEventListener('click', () => window.launcher.windowAction('close'));
 window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = false; byId('progressBar').style.width = Math.max(2, d.current || 2) + '%'; byId('progressText').textContent = d.label || 'Обновление MaoLauncher…'; });
 window.launcher.onProgress(d => { byId('progressWrap').hidden = false; const pct = d.total ? Math.max(3, Math.min(100, Math.round(d.current / d.total * 100))) : 6; byId('progressBar').style.width = pct + '%'; byId('progressText').textContent = (d.label || 'Загрузка') + (d.total ? ' · ' + d.current + '/' + d.total : ''); });
 window.launcher.onGameStarted(d => notify('Minecraft запущен: ' + d.profile)); window.launcher.onGameClosed(d => { if (d.code) notify('Игра завершилась с кодом ' + d.code, true); }); window.launcher.onGameLog(line => { byId('progressText').textContent = line; });
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (config.theme === 'auto') render(); });
-(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); await refreshState(); checkServer(); checkUpdates('updateHint', true); })();
+(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); try { const version = await window.launcher.getLauncherVersion(); byId('launcherVersionLabel').textContent = 'MaoLauncher v' + version; } catch {} await refreshState(); checkServer(); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); })();
