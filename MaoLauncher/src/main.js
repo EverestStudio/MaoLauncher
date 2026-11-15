@@ -354,7 +354,19 @@ async function installLauncherUpdate() {
     const zipPath = path.join(work, release.archiveName);
     const response = await fetch(release.archiveUrl);
     if (!response.ok) throw new Error('Не удалось скачать обновление: HTTP ' + response.status);
-    const data = Buffer.from(await response.arrayBuffer());
+    const chunks = [];
+    const total = Number(response.headers.get('content-length')) || 0;
+    const reader = response.body.getReader();
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(Buffer.from(value));
+      received += value.length;
+      const percent = total ? Math.min(65, Math.round(received / total * 65)) : 20;
+      emit('launcher-update:progress', { current: percent, label: 'Скачиваем MaoLauncher ' + release.version });
+    }
+    const data = Buffer.concat(chunks);
     fs.writeFileSync(zipPath, data);
     emit('launcher-update:progress', { current: 70, label: 'Проверяем целостность обновления' });
     const checksumResponse = await fetch(release.checksumUrl);
@@ -429,7 +441,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('game:open-folder', () => { fs.mkdirSync(gameRoot, { recursive: true }); return shell.openPath(gameRoot); });
   ipcMain.handle('update:check', async () => {
     const settings = readSettings();
-    const [installed, launcher] = await Promise.all([resolveMods(), checkLauncherUpdate()]);
+    const [installed, launcher] = await Promise.all([resolveMods().catch(() => []), checkLauncherUpdate()]);
     let current = []; try { current = JSON.parse(settings.installManifest).mods || []; } catch {}
     const updates = installed.filter(mod => current.length && !current.includes(`${mod.id}:${mod.version.id}`)).map(mod => mod.label);
     return { launcherVersion: LAUNCHER_VERSION, latestLauncherVersion: launcher.latestVersion, launcherUpdate: launcher.available, gameUpdate: false, modUpdates: updates, gameVersion: GAME_VERSION, launcherUpdatesAvailable: launcher.available, updateFeedConfigured: true, loaderManifest: settings.installManifest };
