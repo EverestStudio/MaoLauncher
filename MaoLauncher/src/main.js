@@ -16,12 +16,11 @@ const NEWS_FEED_URL = 'https://hm572194.webhm.cloud/api/news.php';
 const LAUNCHER_VERSION = app.getVersion();
 const PROJECTS = [
   ['fabric-api', 'Fabric API'], ['modmenu', 'Mod Menu'], ['emotecraft', 'EmoteCraft'],
-  ['simple-voice-chat', 'Simple Voice Chat'], ['chat-heads', 'Chat Heads'],
+  ['simple-voice-chat', 'Simple Voice Chat'],
   ['entity-model-features', 'Entity Model Features'], ['entitytexturefeatures', 'Entity Texture Features'],
   ['player-animation-library', 'Player Animation Library'], ['sodium', 'Sodium'], ['iris', 'Iris'],
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
-const PRESENCE_MOD_FILE = 'mao-launcher-presence-1.0.0.jar';
 const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', profiles: [], activeProfile: '', installManifest: '' };
 let mainWindow;
 let tray;
@@ -262,12 +261,6 @@ async function installMods(previousFiles = []) {
     await downloadFile(file.url, path.join(dir, filename), file.hashes?.sha1);
     files.push(filename);
   }
-  const presenceSource = app.isPackaged
-    ? path.join(process.resourcesPath, 'mods', PRESENCE_MOD_FILE)
-    : path.join(__dirname, 'assets', 'mods', PRESENCE_MOD_FILE);
-  if (!fs.existsSync(presenceSource)) throw new Error('Не найден встроенный мод отметки MaoLauncher. Переустановите комплект лаунчера.');
-  fs.copyFileSync(presenceSource, path.join(dir, PRESENCE_MOD_FILE));
-  files.push(PRESENCE_MOD_FILE);
   return { mods, files };
 }
 async function installFabricProfile() {
