@@ -413,24 +413,24 @@ async function installLauncherUpdate() {
     const scriptText = [
       "$ErrorActionPreference = 'Stop'",
       "Start-Transcript -Path " + psQuote(log) + " -Append | Out-Null",
-      "try {",
       '$launcherProcessId = ' + process.pid,
       '$install = ' + psQuote(installRoot),
       '$staged = ' + psQuote(staged),
       '$backup = ' + psQuote(backup),
-      'while (Get-Process -Id $launcherProcessId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }',
       'try {',
+      '  while (Get-Process -Id $launcherProcessId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }',
       '  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }',
       '  if (Test-Path -LiteralPath $install) { Move-Item -LiteralPath $install -Destination $backup }',
       '  Move-Item -LiteralPath $staged -Destination $install',
       "  Start-Process -FilePath (Join-Path $install 'MaoLauncher.exe')",
-      '  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }',
       '} catch {',
+      '  Write-Error $_',
       '  if (!(Test-Path -LiteralPath $install) -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $install }',
-      '  throw',
-      '}',
-      'Start-Sleep -Seconds 2; Remove-Item -LiteralPath ' + psQuote(work) + ' -Recurse -Force -ErrorAction SilentlyContinue'
-    ].join('\r\n');
+      '  Start-Sleep -Seconds 8',
+      '} finally { Stop-Transcript | Out-Null }',
+      'Start-Sleep -Seconds 2',
+      'Remove-Item -LiteralPath ' + psQuote(work) + ' -Recurse -Force -ErrorAction SilentlyContinue'
+    ].join('\\r\\n');
     fs.writeFileSync(script, scriptText, 'utf8');
     emit('launcher-update:progress', { current: 95, label: 'Перезапускаем MaoLauncher' });
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], { detached: true, stdio: 'ignore', windowsHide: true });
