@@ -435,6 +435,7 @@ internal sealed class SetupForm : Form
 internal sealed class ProgressTrack : Control
 {
     private int _value;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public int Value
     {
         get => _value;
