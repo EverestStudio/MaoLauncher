@@ -522,7 +522,7 @@ internal sealed class SetupForm : Form
             {
                 string? processPath = null;
                 try { processPath = process.MainModule?.FileName; } catch { }
-                if (processPath is null ||
+                if (processPath is not null &&
                     !processPath.StartsWith(installRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                     continue;
 
