@@ -104,7 +104,7 @@ internal sealed class SetupForm : Form
         _windowAnimation.Tick += AnimateWindowOpacity;
         Resize += (_, _) =>
         {
-            if (_wasMinimized && WindowState == FormWindowState.Normal)
+            if (_wasMinimized && WindowState == FormWindowState.Normal && _animationDirection != 1)
             {
                 Opacity = 0;
                 StartWindowAnimation(1);
