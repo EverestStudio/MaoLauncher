@@ -94,4 +94,9 @@ jobs:
         run: |
           $tag = "${{ github.event.inputs.release_tag }}"
           if (!$tag) { $tag = "${{ github.ref_name }}" }
-          gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --clobber
+          } else {
+            gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
+          }
