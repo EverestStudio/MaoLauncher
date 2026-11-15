@@ -430,7 +430,7 @@ async function installLauncherUpdate() {
       '} finally { Stop-Transcript | Out-Null }',
       'Start-Sleep -Seconds 2',
       'Remove-Item -LiteralPath ' + psQuote(work) + ' -Recurse -Force -ErrorAction SilentlyContinue'
-    ].join('\\r\\n');
+    ].join('\r\n');
     fs.writeFileSync(script, scriptText, 'utf8');
     emit('launcher-update:progress', { current: 95, label: 'Перезапускаем MaoLauncher' });
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], { detached: true, stdio: 'ignore', windowsHide: true });
