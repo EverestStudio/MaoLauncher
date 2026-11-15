@@ -21,7 +21,7 @@ const PROJECTS = [
   ['player-animation-library', 'Player Animation Library'], ['sodium', 'Sodium'], ['iris', 'Iris'],
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
-const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', profiles: [], activeProfile: '', installManifest: '' };
+const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', profiles: [], activeProfile: '', installManifest: '' };
 let mainWindow;
 let tray;
 let quitting = false;
@@ -41,6 +41,7 @@ function saveSettings(value) {
   clean.memory = Math.max(2048, Math.min(32768, Number(clean.memory) || 4096));
   clean.theme = ['auto', 'light', 'dark'].includes(clean.theme) ? clean.theme : 'auto';
   clean.language = ['ru', 'en'].includes(clean.language) ? clean.language : 'ru';
+  clean.minimizeBehavior = ['tray', 'taskbar'].includes(clean.minimizeBehavior) ? clean.minimizeBehavior : 'tray';
   clean.profiles = Array.isArray(clean.profiles) ? clean.profiles.filter(p => p && /^[A-Za-z0-9_]{3,16}$/.test(p.name) && /^[0-9a-f-]{36}$/i.test(p.uuid)).map(p => ({ ...p, type: 'offline' })).slice(0, 20) : [];
   if (!clean.profiles.some(p => p.name === clean.activeProfile)) clean.activeProfile = clean.profiles[0]?.name || '';
   fs.writeFileSync(settingsPath, JSON.stringify(clean, null, 2));
@@ -318,7 +319,6 @@ async function runMinecraft() {
 }
 async function createWindow() {
   mainWindow = new BrowserWindow({ width: 1280, height: 820, minWidth: 760, minHeight: 620, title: 'MaoLauncher', icon: path.join(__dirname, 'assets', 'mao-icon.png'), backgroundColor: '#100e16', frame: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
-  mainWindow.on('minimize', event => { event.preventDefault(); mainWindow.hide(); });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url.startsWith('https://')) shell.openExternal(url); return { action: 'deny' }; });
   await mainWindow.loadFile(path.join(__dirname, 'index.html'));
@@ -408,31 +408,36 @@ async function installLauncherUpdate() {
     const AdmZip = require('adm-zip'); new AdmZip(zipPath).extractAllTo(extracted, true);
     const executable = findLauncherExecutable(extracted);
     if (!executable) throw new Error('В архиве обновления не найден MaoLauncher.exe.');
-    const staged = path.join(work, 'staged-app'); fs.renameSync(path.dirname(executable), staged);
-    const installRoot = path.dirname(process.execPath), backup = installRoot + '.update-backup', script = path.join(work, 'apply-update.ps1');
+    const staged = path.join(work, 'staged-app'); fs.cpSync(path.dirname(executable), staged, { recursive: true });
+    const installRoot = path.dirname(process.execPath), backup = installRoot + '.update-backup', script = path.join(work, 'apply-update.ps1'), log = path.join(app.getPath('userData'), 'update-install.log');
     const scriptText = [
       "$ErrorActionPreference = 'Stop'",
+      "Start-Transcript -Path " + psQuote(log) + " -Append | Out-Null",
       '$launcherProcessId = ' + process.pid,
       '$install = ' + psQuote(installRoot),
       '$staged = ' + psQuote(staged),
       '$backup = ' + psQuote(backup),
-      'while (Get-Process -Id $launcherProcessId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 400 }',
       'try {',
+      '  while (Get-Process -Id $launcherProcessId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }',
       '  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }',
       '  if (Test-Path -LiteralPath $install) { Move-Item -LiteralPath $install -Destination $backup }',
       '  Move-Item -LiteralPath $staged -Destination $install',
       "  Start-Process -FilePath (Join-Path $install 'MaoLauncher.exe')",
-      '  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }',
       '} catch {',
+      '  Write-Error $_',
       '  if (!(Test-Path -LiteralPath $install) -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $install }',
-      '  throw',
-      '}',
-      'Start-Sleep -Seconds 2; Remove-Item -LiteralPath ' + psQuote(work) + ' -Recurse -Force -ErrorAction SilentlyContinue'
+      '  Start-Sleep -Seconds 8',
+      '} finally { Stop-Transcript | Out-Null }',
+      'Start-Sleep -Seconds 2',
+      'Remove-Item -LiteralPath ' + psQuote(work) + ' -Recurse -Force -ErrorAction SilentlyContinue'
     ].join('\r\n');
     fs.writeFileSync(script, scriptText, 'utf8');
     emit('launcher-update:progress', { current: 95, label: 'Перезапускаем MaoLauncher' });
-    const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], { detached: true, stdio: 'ignore', windowsHide: true });
-    child.unref(); app.quit(); return { started: true, version: release.version };
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], { detached: true, stdio: 'ignore', windowsHide: true });
+    child.once('error', error => { try { fs.appendFileSync(log, '\\nUpdater launch error: ' + error.message); } catch {} });
+    child.unref();
+    await new Promise(resolve => setTimeout(resolve, 700));
+    app.quit(); return { started: true, version: release.version };
   } catch (error) { fs.rmSync(work, { recursive: true, force: true }); throw error; }
 }
 
@@ -479,7 +484,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('server:status', () => serverStatus());
   ipcMain.handle('window:action', (_event, action) => {
     if (!mainWindow) return false;
-    if (action === 'minimize') mainWindow.hide();
+    if (action === 'minimize') {
+      if (readSettings().minimizeBehavior === 'tray') mainWindow.hide();
+      else mainWindow.minimize();
+    }
     else if (action === 'maximize') mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
     else if (action === 'close') { quitting = true; mainWindow.close(); }
     return true;
