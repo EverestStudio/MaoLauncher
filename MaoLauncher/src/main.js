@@ -412,6 +412,7 @@ async function installLauncherUpdate() {
 app.whenReady().then(async () => {
   settingsPath = path.join(app.getPath('userData'), 'settings.json');
   gameRoot = path.join(app.getPath('userData'), 'game');
+  ipcMain.handle('app:version', () => LAUNCHER_VERSION);
   ipcMain.handle('settings:read', () => readSettings());
   ipcMain.handle('settings:save', (_event, value) => saveSettings(value));
   ipcMain.handle('profiles:add', (_event, nameValue) => {
