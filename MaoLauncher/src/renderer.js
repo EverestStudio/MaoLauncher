@@ -1,4 +1,4 @@
-const defaults = { memory: 4096, theme: 'auto', language: 'ru', profiles: [], activeProfile: '', news: [] };
+const defaults = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', profiles: [], activeProfile: '', news: [] };
 let config = { ...defaults }, gameInstalled = false, gameBusy = false, gameUpdateAvailable = false, launcherUpdateAvailable = false, toastTimer;
 const byId = (id) => document.getElementById(id);
 function configureNavigation() {
@@ -169,7 +169,41 @@ function renderProfiles() {
 }
 function showAccountChoices() { byId('offlineForm').hidden = true; byId('elybyNotice').hidden = true; document.querySelector('.accountChoices').hidden = false; }
 function renderPlayButton() { const b = byId('playButton'); b.textContent = gameBusy ? 'Подготовка…' : (launcherUpdateAvailable || gameUpdateAvailable) ? 'Обновить' : gameInstalled ? 'Играть' : 'Установить'; b.disabled = gameBusy; }
-function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); byId('memorySetting').value = String(config.memory); byId('memoryValue').value = (config.memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + ' ГБ'; byId('themeSetting').value = config.theme; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); }
+const originalTextNodes = new WeakMap();
+const englishText = {
+  'МЕНЮ':'MENU','Главная':'Home','Сервер':'Server','Настройки':'Settings','Профиль':'Profile','Обновления':'Updates','О лаунчере':'About',
+  'Твой путь в мир Minecraft начинается здесь!':'Your Minecraft adventure starts here!',
+  'Новости сервера':'Server news','Последние объявления сообщества':'Latest community announcements','Пока нет новостей':'No news yet',
+  'Сборка сервера':'Server modpack','Автоматическая установка Fabric-модов':'Automatic Fabric mod installation','Быстрый доступ':'Quick links',
+  'Игроки онлайн':'Players online','Версия клиента':'Client version','Подробнее':'Details','Копировать IP':'Copy IP',
+  'Добавить профиль':'Add profile','Выберите способ входа в MaoLauncher':'Choose how to sign in to MaoLauncher',
+  'Оффлайн':'Offline','Создать локальный профиль по нику':'Create a local profile by username','Вход через учётную запись Ely.by':'Sign in with Ely.by',
+  'Ник игрока':'Player name','Создать профиль':'Create profile','Назад к выбору':'Back to choices',
+  'Оперативная память':'Memory','Максимум для Minecraft':'Maximum for Minecraft','Тема':'Theme','Светлая, тёмная или системная':'Light, dark or system',
+  'Язык':'Language','Язык интерфейса':'Interface language','Файлы игры':'Game files','Папка Minecraft и модов':'Minecraft and mods folder',
+  'Открыть папку':'Open folder','Проверить обновления':'Check for updates','Сворачивание лаунчера':'Minimize behavior',
+  'Куда скрывать окно при нажатии «Свернуть»':'Where to send the window when minimized',
+  'В системный трей':'To system tray','На панель задач':'To taskbar','Светлая':'Light','Тёмная':'Dark','Авто':'Auto',
+  'Играйте. Увлекайтесь.':'Play. Explore.','Побеждайте!':'Win!'
+};
+function applyLanguage() {
+  const english = config.language === 'en';
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (!originalTextNodes.has(node)) originalTextNodes.set(node, node.nodeValue);
+    const original = originalTextNodes.get(node) || '';
+    const trimmed = original.trim();
+    if (!trimmed) continue;
+    const translated = english ? (englishText[trimmed] || trimmed) : trimmed;
+    node.nodeValue = original.replace(trimmed, translated);
+  }
+  document.documentElement.lang = english ? 'en' : 'ru';
+  byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
+  byId('maximizeWindow').title = english ? 'Maximize' : 'Развернуть';
+  byId('closeWindow').title = english ? 'Close' : 'Закрыть';
+}
+function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); byId('memorySetting').value = String(config.memory); byId('memoryValue').value = (config.memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + ' ГБ'; byId('themeSetting').value = config.theme; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applyLanguage(); }
 async function refreshState() { try { gameInstalled = Boolean((await window.launcher.gameState()).installed); } catch { gameInstalled = false; } renderPlayButton(); }
 function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
 async function checkServer() {
