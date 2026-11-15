@@ -72,18 +72,16 @@ function configureNavigation() {
   if (sideStatus) sideStatus.textContent = 'Состояние сервера';
   if (profileButton && sidefoot) {
     profileButton.classList.add('profileNav');
-    profileButton.style.cssText = 'display:block;width:100%;margin:12px 0 0;padding:12px 13px;text-align:left;border:1px solid #9c60c2;border-radius:5px;background:#21192a;color:var(--text);font-size:13px;font-weight:650;box-shadow:0 0 0 1px #a75df233';
+    profileButton.style.cssText = 'display:flex;width:auto;margin:0;padding:8px 13px;text-align:left;border:1px solid #9c60c2;border-radius:5px;background:#21192a;color:var(--text);font-size:13px;font-weight:650';
     const dock = document.createElement('div');
     dock.className = 'profileDock';
-    dock.style.cssText = 'position:relative;width:100%;margin-top:10px';
+    dock.style.cssText = 'position:relative;width:auto;margin:0';
     const menu = document.createElement('div');
     menu.id = 'profileMenu';
     menu.className = 'profileMenu';
-    menu.style.cssText = 'position:absolute;z-index:10;left:0;right:0;bottom:calc(100% + 8px);padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:5px;box-shadow:0 12px 30px #0008;text-align:left';
     menu.hidden = true;
     dock.append(menu, profileButton);
-  sidefoot.append(dock);
-  document.querySelector('.main').style.cssText = 'align-self:stretch;margin:0 auto;min-height:100vh';
+    document.querySelector('.topActions')?.append(dock);
     profileButton.setAttribute('aria-haspopup', 'true');
     profileButton.setAttribute('aria-expanded', 'false');
     profileButton.addEventListener('click', event => {
@@ -171,7 +169,7 @@ function renderProfiles() {
 }
 function showAccountChoices() { byId('offlineForm').hidden = true; byId('elybyNotice').hidden = true; document.querySelector('.accountChoices').hidden = false; }
 function renderPlayButton() { const b = byId('playButton'); b.textContent = gameBusy ? 'Подготовка…' : (launcherUpdateAvailable || gameUpdateAvailable) ? 'Обновить' : gameInstalled ? 'Играть' : 'Установить'; b.disabled = gameBusy; }
-function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); byId('memorySetting').value = String(config.memory); byId('themeSetting').value = config.theme; byId('languageSetting').value = config.language; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); }
+function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); byId('memorySetting').value = String(config.memory); byId('memoryValue').value = (config.memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + ' ГБ'; byId('themeSetting').value = config.theme; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); }
 async function refreshState() { try { gameInstalled = Boolean((await window.launcher.gameState()).installed); } catch { gameInstalled = false; } renderPlayButton(); }
 function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
 async function checkServer() {
@@ -200,7 +198,11 @@ byId('profileName').addEventListener('input', event => { const name = event.targ
 byId('reloadMap').addEventListener('click', () => { const frame = byId('serverMap'); frame.src = 'http://135.181.126.154:25602/?refresh=' + Date.now(); });
 async function copyAddress() { await navigator.clipboard.writeText('mc.maopickme.ru'); notify('IP mc.maopickme.ru скопирован.'); }
 ['copyAddress', 'copySide', 'copyDetail'].forEach(id => byId(id)?.addEventListener('click', copyAddress)); byId('refreshServer').addEventListener('click', checkServer);
-for (const [id, key] of [['memorySetting', 'memory'], ['themeSetting', 'theme'], ['languageSetting', 'language']]) byId(id).addEventListener('change', async e => { config = await window.launcher.saveSettings({ ...config, [key]: key === 'memory' ? Number(e.target.value) : e.target.value }); render(); });
+byId('memorySetting').addEventListener('input', event => { byId('memoryValue').value = (Number(event.target.value) / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + ' ГБ'; });
+for (const [id, key] of [['memorySetting', 'memory'], ['themeSetting', 'theme'], ['languageSetting', 'language'], ['minimizeBehavior', 'minimizeBehavior']]) byId(id).addEventListener('change', async e => {
+  config = await window.launcher.saveSettings({ ...config, [key]: key === 'memory' ? Number(e.target.value) : e.target.value });
+  render();
+});
 byId('openFolder').addEventListener('click', async () => { const error = await window.launcher.openGameFolder(); if (error) notify(error, true); });
 async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); const versionLabel = byId('launcherVersionLabel'); if (versionLabel && r.launcherVersion) versionLabel.textContent = 'MaoLauncher v' + r.launcherVersion; gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); if (hint) hint.textContent = launcherUpdateAvailable ? 'Доступна новая версия MaoLauncher ' + r.latestLauncherVersion + '. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'MaoLauncher и установленные моды обновлены до последних версий.'; if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
 byId('checkUpdates')?.addEventListener('click', () => checkUpdates());
