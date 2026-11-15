@@ -6,7 +6,7 @@ on:
       release_tag:
         description: "Release tag, for example v1.0.1"
         required: true
-        default: "v1.0.1"
+        default: "v1.0.2"
   push:
     tags:
       - "v*"
@@ -20,6 +20,79 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set launcher version from release tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if (!$tag) { $tag = "${{ github.ref_name }}" }
+          $version = $tag.TrimStart('v', 'V')
+          if ($version -notmatch '^\d+\.\d+\.\d+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Check launcher source
+        shell: pwsh
+        run: |
+          if (!(Test-Path "MaoLauncher/package.json")) {
+            throw "Missing MaoLauncher/package.json. Import the launcher source into the MaoLauncher/ directory first."
+          }
+          if (!(Test-Path "MaoLauncher/src/main.js")) {
+            throw "Missing MaoLauncher/src/main.js."
+          }
+
+      - name: Prepare embedded Python runtime
+        shell: pwsh
+        run: |
+          $runtime = "MaoLauncher/python/runtime"
+          New-Item -ItemType Directory -Force -Path $runtime | Out-Null
+          $zip = Join-Path $env:RUNNER_TEMP "python-3.12.10-embed-amd64.zip"
+          Invoke-WebRequest "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $runtime -Force
+
+      - name: Install npm dependencies
+        working-directory: MaoLauncher
+        run: npm install
+
+      - name: Build Windows launcher ZIP
+        working-directory: MaoLauncher
+        run: npm run dist:win -- --x64
+
+      - name: Calculate launcher checksum
+        shell: pwsh
+        run: |
+          $archive = Get-ChildItem "MaoLauncher/dist/MaoLauncher-*-win-x64.zip" | Select-Object -First 1
+          if (!$archive) { throw "electron-builder did not produce the expected Windows x64 ZIP." }
+          $hash = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($archive.Name)" | Set-Content -NoNewline "$($archive.FullName).sha256"
+          "LAUNCHER_ARCHIVE=$($archive.FullName)" >> $env:GITHUB_ENV
+          "LAUNCHER_CHECKSUM=$($archive.FullName).sha256" >> $env:GITHUB_ENV
+
+      - name: Publish standalone setup EXE
+        run: >
+          dotnet publish MaoLauncher-Setup/MaoLauncher.Setup.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o artifacts/setup
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if (!$tag) { $tag = "${{ github.ref_name }}" }
+          gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
+) { throw "Release tag must look like v1.2.3." }
+          npm version $version --no-git-tag-version --prefix MaoLauncher
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
