@@ -1,6 +1,6 @@
 {
   "name": "mao-launcher",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "MaoLauncher for mc.maopickme.ru",
   "main": "src/main.js",
   "scripts": {
