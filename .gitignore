@@ -147,3 +147,14 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+
+# MaoLauncher build outputs
+MaoLauncher/dist/
+MaoLauncher/node_modules/
+MaoLauncher/.electron*
+MaoLauncher/npm-debug.log*
+
+# .NET build output
+MaoLauncher-Setup/bin/
+MaoLauncher-Setup/obj/
