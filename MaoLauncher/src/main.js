@@ -6,13 +6,13 @@ const net = require('node:net');
 const dns = require('node:dns/promises');
 const { performance } = require('node:perf_hooks');
 const { Client } = require('minecraft-launcher-core');
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
 
 const GAME_VERSION = '26.2';
 const SERVER = 'mc.maopickme.ru';
-const LAUNCHER_VERSION = '1.0.0';
+const LAUNCHER_VERSION = app.getVersion();
 const PROJECTS = [
   ['fabric-api', 'Fabric API'], ['modmenu', 'Mod Menu'], ['emotecraft', 'EmoteCraft'],
   ['simple-voice-chat', 'Simple Voice Chat'], ['chat-heads', 'Chat Heads'],
@@ -313,6 +313,102 @@ function createTray() {
   tray.on('click', showWindow);
   tray.on('double-click', showWindow);
 }
+
+const RELEASE_API = 'https://api.github.com/repos/EverestStudio/MaoLauncher/releases/latest';
+function compareVersions(left, right) {
+  const a = String(left).replace(/^v/i, '').split('.').map(Number), b = String(right).replace(/^v/i, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) { const diff = (a[i] || 0) - (b[i] || 0); if (diff) return Math.sign(diff); }
+  return 0;
+}
+async function latestLauncherRelease() {
+  const release = await api(RELEASE_API), version = String(release.tag_name || '').replace(/^v/i, '');
+  if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('У последнего релиза некорректный номер версии.');
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const archive = assets.find(item => /^MaoLauncher-.*-win-x64\.zip$/i.test(item.name || ''));
+  if (!archive) throw new Error('В последнем релизе не найден ZIP-архив Windows x64.');
+  const checksum = assets.find(item => item.name === archive.name + '.sha256');
+  if (!checksum) throw new Error('В последнем релизе отсутствует SHA-256 для архива.');
+  return { version, archiveUrl: archive.browser_download_url, checksumUrl: checksum.browser_download_url, archiveName: archive.name };
+}
+async function checkLauncherUpdate() {
+  const release = await latestLauncherRelease();
+  return { currentVersion: LAUNCHER_VERSION, latestVersion: release.version, available: compareVersions(release.version, LAUNCHER_VERSION) > 0 };
+}
+function findLauncherExecutable(directory) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name);
+    if (entry.isFile() && entry.name.toLowerCase() === 'maolauncher.exe') return full;
+    if (entry.isDirectory()) { const found = findLauncherExecutable(full); if (found) return found; }
+  }
+  return null;
+}
+function psQuote(value) { return "'" + String(value).replaceAll("'", "''") + "'"; }
+async function installLauncherUpdate() {
+  if (process.platform !== 'win32' || !app.isPackaged) throw new Error('Обновление лаунчера доступно в установленной Windows-версии.');
+  if (installPromise) throw new Error('Дождитесь завершения установки Minecraft.');
+  const release = await latestLauncherRelease();
+  if (compareVersions(release.version, LAUNCHER_VERSION) <= 0) return { upToDate: true };
+  if (!release.archiveUrl?.startsWith('https://') || !release.checksumUrl?.startsWith('https://')) throw new Error('GitHub вернул небезопасную ссылку обновления.');
+  const work = fs.mkdtempSync(path.join(app.getPath('temp'), 'MaoLauncher-update-'));
+  try {
+    const zipPath = path.join(work, release.archiveName);
+    const response = await fetch(release.archiveUrl);
+    if (!response.ok) throw new Error('Не удалось скачать обновление: HTTP ' + response.status);
+    const chunks = [];
+    const total = Number(response.headers.get('content-length')) || 0;
+    const reader = response.body.getReader();
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(Buffer.from(value));
+      received += value.length;
+      const percent = total ? Math.min(65, Math.round(received / total * 65)) : 20;
+      emit('launcher-update:progress', { current: percent, label: 'Скачиваем MaoLauncher ' + release.version });
+    }
+    const data = Buffer.concat(chunks);
+    fs.writeFileSync(zipPath, data);
+    emit('launcher-update:progress', { current: 70, label: 'Проверяем целостность обновления' });
+    const checksumResponse = await fetch(release.checksumUrl);
+    if (!checksumResponse.ok) throw new Error('Не удалось скачать контрольную сумму обновления.');
+    const checksumText = await checksumResponse.text();
+    const expected = checksumText.match(/\b[0-9a-f]{64}\b/i)?.[0];
+    if (!expected) throw new Error('Файл SHA-256 имеет неверный формат.');
+    const actual = crypto.createHash('sha256').update(data).digest('hex');
+    if (actual.toLowerCase() !== expected.toLowerCase()) throw new Error('Контрольная сумма обновления не совпала. Установка отменена.');
+    emit('launcher-update:progress', { current: 82, label: 'Распаковываем обновление' });
+    const extracted = path.join(work, 'extracted'); fs.mkdirSync(extracted);
+    const AdmZip = require('adm-zip'); new AdmZip(zipPath).extractAllTo(extracted, true);
+    const executable = findLauncherExecutable(extracted);
+    if (!executable) throw new Error('В архиве обновления не найден MaoLauncher.exe.');
+    const staged = path.join(work, 'staged-app'); fs.renameSync(path.dirname(executable), staged);
+    const installRoot = path.dirname(process.execPath), backup = installRoot + '.update-backup', script = path.join(work, 'apply-update.ps1');
+    const scriptText = [
+      "$ErrorActionPreference = 'Stop'",
+      '$processId = ' + process.pid,
+      '$install = ' + psQuote(installRoot),
+      '$staged = ' + psQuote(staged),
+      '$backup = ' + psQuote(backup),
+      'while (Get-Process -Id $processId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 400 }',
+      'try {',
+      '  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }',
+      '  if (Test-Path -LiteralPath $install) { Move-Item -LiteralPath $install -Destination $backup }',
+      '  Move-Item -LiteralPath $staged -Destination $install',
+      "  Start-Process -FilePath (Join-Path $install 'MaoLauncher.exe')",
+      '  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }',
+      '} catch {',
+      '  if (!(Test-Path -LiteralPath $install) -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $install }',
+      '  throw',
+      '}',
+      'Start-Sleep -Seconds 2; Remove-Item -LiteralPath ' + psQuote(work) + ' -Recurse -Force -ErrorAction SilentlyContinue'
+    ].join('\r\n');
+    fs.writeFileSync(script, scriptText, 'utf8');
+    emit('launcher-update:progress', { current: 95, label: 'Перезапускаем MaoLauncher' });
+    const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], { detached: true, stdio: 'ignore', windowsHide: true });
+    child.unref(); app.quit(); return { started: true, version: release.version };
+  } catch (error) { fs.rmSync(work, { recursive: true, force: true }); throw error; }
+}
+
 app.whenReady().then(async () => {
   settingsPath = path.join(app.getPath('userData'), 'settings.json');
   gameRoot = path.join(app.getPath('userData'), 'game');
@@ -345,11 +441,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('game:open-folder', () => { fs.mkdirSync(gameRoot, { recursive: true }); return shell.openPath(gameRoot); });
   ipcMain.handle('update:check', async () => {
     const settings = readSettings();
-    const installed = await resolveMods();
+    const [installed, launcher] = await Promise.all([resolveMods().catch(() => []), checkLauncherUpdate()]);
     let current = []; try { current = JSON.parse(settings.installManifest).mods || []; } catch {}
     const updates = installed.filter(mod => current.length && !current.includes(`${mod.id}:${mod.version.id}`)).map(mod => mod.label);
-    return { launcherVersion: LAUNCHER_VERSION, gameUpdate: false, modUpdates: updates, launcherUpdate: false, gameVersion: GAME_VERSION, launcherUpdatesAvailable: false, updateFeedConfigured: false, loaderManifest: settings.installManifest };
+    return { launcherVersion: LAUNCHER_VERSION, latestLauncherVersion: launcher.latestVersion, launcherUpdate: launcher.available, gameUpdate: false, modUpdates: updates, gameVersion: GAME_VERSION, launcherUpdatesAvailable: launcher.available, updateFeedConfigured: true, loaderManifest: settings.installManifest };
   });
+  ipcMain.handle('launcher:update-install', () => installLauncherUpdate());
   ipcMain.handle('server:status', () => serverStatus());
   ipcMain.handle('window:action', (_event, action) => {
     if (!mainWindow) return false;
