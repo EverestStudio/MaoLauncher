@@ -485,8 +485,16 @@ internal sealed class SetupForm : Form
         if (!string.Equals(Path.GetFullPath(source), Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase))
         {
             var temporary = destination + ".new";
-            File.Copy(source, temporary, true);
-            File.Move(temporary, destination, true);
+            try
+            {
+                File.Copy(source, temporary, true);
+                File.Move(temporary, destination, true);
+            }
+            catch
+            {
+                try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+                if (!File.Exists(destination)) throw;
+            }
         }
         return destination;
     }
@@ -574,7 +582,7 @@ internal sealed class SetupForm : Form
     {
         _install.Enabled = !busy;
         _cancel.Enabled = busy;
-        _install.Text = busy ? "Установка…" : "Установить MaoLauncher";
+        _install.Text = busy ? "Проверяем…" : "Проверить и запустить";
     }
 
     private static void ExtractZipSafely(string zipPath, string destination)
