@@ -482,6 +482,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('launcher:update-install', () => installLauncherUpdate());
   ipcMain.handle('news:get', () => fetchServerNews());
+  ipcMain.handle('launcher:version', () => LAUNCHER_VERSION);
   ipcMain.handle('server:status', () => serverStatus());
   ipcMain.handle('window:action', (_event, action) => {
     if (!mainWindow) return false;
