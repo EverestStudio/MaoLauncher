@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag, for example v1.0.1"
+        description: "Release tag, for example v1.0.2"
         required: true
         default: "v1.0.2"
   push:
@@ -57,41 +57,9 @@ jobs:
           RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
         run: |
           $version = $env:RELEASE_TAG -replace '^v', ''
-          if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?        working-directory: MaoLauncher
-        run: npm install
-
-      - name: Build Windows launcher ZIP
-        working-directory: MaoLauncher
-        run: npm run dist:win -- --x64
-
-      - name: Calculate launcher checksum
-        shell: pwsh
-        run: |
-          $archive = Get-ChildItem "MaoLauncher/dist/MaoLauncher-*-win-x64.zip" | Select-Object -First 1
-          if (!$archive) { throw "electron-builder did not produce the expected Windows x64 ZIP." }
-          $hash = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $($archive.Name)" | Set-Content -NoNewline "$($archive.FullName).sha256"
-          "LAUNCHER_ARCHIVE=$($archive.FullName)" >> $env:GITHUB_ENV
-          "LAUNCHER_CHECKSUM=$($archive.FullName).sha256" >> $env:GITHUB_ENV
-
-      - name: Publish standalone setup EXE
-        run: >
-          dotnet publish MaoLauncher-Setup/MaoLauncher.Setup.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -o artifacts/setup
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
-          if (!$tag) { $tag = "${{ github.ref_name }}" }
-          gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
-) { throw "Invalid release version: $version" }
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { throw "Invalid release version: $version" }
           npm version $version --no-git-tag-version --allow-same-version
+          "RELEASE_TAG=$env:RELEASE_TAG" >> $env:GITHUB_ENV
 
       - name: Install npm dependencies
         working-directory: MaoLauncher
@@ -124,6 +92,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
-          if (!$tag) { $tag = "${{ github.ref_name }}" }
+          $tag = $env:RELEASE_TAG
           gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
