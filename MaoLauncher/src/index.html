@@ -44,13 +44,13 @@ body,.main{scrollbar-width:none}body::-webkit-scrollbar,.main::-webkit-scrollbar
 @media(max-width:680px){.topActions .windowBtn{width:34px;height:34px;border-radius:9px}}
 
 
-/* Move profile and window controls to the very top edge of the top bar. */
-.topActions{top:0!important;transform:none!important;align-items:center!important}
+/* Lower the profile and window controls slightly from the top edge. */
+.topActions{top:12px!important;transform:none!important;align-items:center!important}
 .topActions .profileDock{order:0!important}
 .topActions #minimizeWindow{order:1!important}
 .topActions #maximizeWindow{order:2!important}
 .topActions #closeWindow{order:3!important}
-@media(max-width:680px){.topActions{top:0!important}}
+@media(max-width:680px){.topActions{top:12px!important}}
 
 
 /* Keep the top bar and its profile/window controls fixed while switching or scrolling between tabs. */
