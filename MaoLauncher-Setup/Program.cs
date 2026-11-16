@@ -92,14 +92,14 @@ internal sealed class SetupForm : Form
         topTitle.MouseDown += DragWindow;
 
         var windowButtons = new Panel { Dock = DockStyle.Right, Width = 92, BackColor = Color.Transparent };
-        var closeButton = CreateWindowButton("×", Color.FromArgb(255, 255, 255));
-        closeButton.Dock = DockStyle.Right;
-        closeButton.Click += (_, _) => Close();
         var minimizeButton = CreateWindowButton("—", Color.FromArgb(226, 216, 237));
-        minimizeButton.Dock = DockStyle.Right;
+        minimizeButton.Location = new Point(0, 0);
         minimizeButton.Click += (_, _) => WindowState = FormWindowState.Minimized;
-        windowButtons.Controls.Add(closeButton);
+        var closeButton = CreateWindowButton("×", Color.FromArgb(255, 255, 255));
+        closeButton.Location = new Point(46, 0);
+        closeButton.Click += (_, _) => Close();
         windowButtons.Controls.Add(minimizeButton);
+        windowButtons.Controls.Add(closeButton);
         topBar.Controls.Add(windowButtons);
         windowButtons.BringToFront();
 
@@ -484,10 +484,7 @@ internal sealed class SetupForm : Form
 
                 if (!process.HasExited)
                 {
-                    MessageBox.Show(this,
-                        "Сначала закрой MaoLauncher (в том числе из системного трея), затем нажми «Повторить» и запусти установщик ещё раз.",
-                        "Нужно закрыть MaoLauncher", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return false;
+                    throw new InvalidOperationException("Не удалось закрыть запущенный MaoLauncher. Установщик завершает работу без изменения установленной версии.");
                 }
             }
         }
