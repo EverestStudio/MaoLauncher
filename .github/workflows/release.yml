@@ -6,7 +6,7 @@ on:
       release_tag:
         description: "Release tag, for example v1.0.6"
         required: true
-        default: "v1.0.6"
+        default: "v1.1.5"
   push:
     tags:
       - "v*"
@@ -64,6 +64,14 @@ jobs:
       - name: Install npm dependencies
         working-directory: MaoLauncher
         run: npm install
+
+      - name: Check JavaScript syntax
+        working-directory: MaoLauncher
+        shell: pwsh
+        run: |
+          node --check src/main.js
+          node --check src/preload.js
+          node --check src/renderer.js
 
       - name: Build Windows launcher ZIP
         working-directory: MaoLauncher

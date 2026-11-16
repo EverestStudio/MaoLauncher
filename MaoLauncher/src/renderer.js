@@ -141,7 +141,7 @@ function renderProfiles() {
   const active = config.profiles.find(profile => profile.name === config.activeProfile);
   const button = document.querySelector('.profileNav');
   if (button) button.innerHTML = active
-    ? '<img class="profileButtonAvatar" alt="" src="https://mc-heads.net/avatar/' + encodeURIComponent(active.name) + '/32"><span class="navText">' + safe(active.name) + '</span><small class="profileType">' + (active.type === 'elyby' ? 'Ely.by' : 'Оффлайн') + '</small>'
+    ? '<img class="profileButtonAvatar" alt="" src="https://mc-heads.net/avatar/' + encodeURIComponent(active.name) + '/32"><span class="profileIdentity"><span class="profileNickname">' + safe(active.name) + '</span><small class="profileType">' + (active.type === 'elyby' ? 'Ely.by' : 'Оффлайн') + '</small></span>'
     : '<span>♙</span><span class="navText">Профиль</span>';
   button?.querySelector('.profileButtonAvatar')?.addEventListener('error', event => { event.currentTarget.hidden = true; });
   const menu = byId('profileMenu');
@@ -200,7 +200,6 @@ function applyLanguage() {
   }
   document.documentElement.lang = english ? 'en' : 'ru';
   byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
-  byId('maximizeWindow').title = english ? 'Maximize' : 'Развернуть';
   byId('closeWindow').title = english ? 'Close' : 'Закрыть';
 }
 function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); byId('memorySetting').value = String(config.memory); byId('memoryValue').value = (config.memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + (config.language === 'ru' ? ' ГБ' : ' GB'); byId('themeSetting').value = config.theme; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); }
@@ -275,7 +274,7 @@ for (const [id, key] of [['memorySetting', 'memory'], ['themeSetting', 'theme'],
 byId('openFolder').addEventListener('click', async () => { const error = await window.launcher.openGameFolder(); if (error) notify(error, true); });
 async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); const versionLabel = byId('launcherVersionLabel'); if (versionLabel && r.launcherVersion) versionLabel.textContent = 'MaoLauncher v' + r.launcherVersion; gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); if (hint) hint.textContent = launcherUpdateAvailable ? 'Доступна новая версия MaoLauncher ' + r.latestLauncherVersion + '. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'MaoLauncher и установленные моды обновлены до последних версий.'; if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
 byId('checkUpdates')?.addEventListener('click', () => checkUpdates());
-byId('minimizeWindow').addEventListener('click', () => window.launcher.windowAction('minimize')); byId('maximizeWindow')?.addEventListener('click', () => window.launcher.windowAction('maximize')); byId('closeWindow').addEventListener('click', () => window.launcher.windowAction('close'));
+byId('minimizeWindow').addEventListener('click', () => window.launcher.windowAction('minimize')); byId('closeWindow').addEventListener('click', () => window.launcher.windowAction('close'));
 window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = false; byId('progressBar').style.width = Math.max(2, d.current || 2) + '%'; byId('progressText').textContent = d.label || 'Обновление MaoLauncher…'; });
 window.launcher.onProgress(d => { byId('progressWrap').hidden = false; const pct = d.total ? Math.max(3, Math.min(100, Math.round(d.current / d.total * 100))) : 6; byId('progressBar').style.width = pct + '%'; byId('progressText').textContent = (d.label || 'Загрузка') + (d.total ? ' · ' + d.current + '/' + d.total : ''); });
 window.launcher.onGameStarted(d => notify('Minecraft запущен: ' + d.profile)); window.launcher.onGameClosed(d => { if (d.code) notify('Игра завершилась с кодом ' + d.code, true); }); window.launcher.onGameLog(line => { byId('progressText').textContent = line; });

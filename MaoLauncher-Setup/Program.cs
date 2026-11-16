@@ -42,8 +42,7 @@ internal sealed class SetupForm : Form
         Font = new Font("Segoe UI Semibold", 9F),
         BackColor = Color.Transparent
     };
-    private readonly Button _install = CreateButton("Проверить и запустить", true);
-    private readonly Button _cancel = CreateButton("Отмена", false);
+    
     private CancellationTokenSource? _cancellation;
 
     [DllImport("user32.dll")]
@@ -55,14 +54,14 @@ internal sealed class SetupForm : Form
     public SetupForm()
     {
         Text = "MaoLauncher Setup";
-        ClientSize = new Size(760, 440);
-        MinimumSize = new Size(760, 440);
-        MaximumSize = new Size(760, 440);
+        ClientSize = new Size(560, 520);
+        MinimumSize = new Size(560, 520);
+        MaximumSize = new Size(560, 520);
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        ControlBox = true;
+        FormBorderStyle = FormBorderStyle.None;
+        ControlBox = false;
         MaximizeBox = false;
-        MinimizeBox = true;
+        MinimizeBox = false;
         BackColor = Color.FromArgb(13, 10, 17);
         DoubleBuffered = true;
 
@@ -75,7 +74,7 @@ internal sealed class SetupForm : Form
         var topBar = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 42,
+            Height = 46,
             BackColor = Color.FromArgb(150, 12, 9, 17)
         };
         background.Controls.Add(topBar);
@@ -84,7 +83,7 @@ internal sealed class SetupForm : Form
         {
             Text = "MAO PICK ME  /  INSTALLER",
             AutoSize = true,
-            Location = new Point(22, 13),
+            Location = new Point(20, 15),
             ForeColor = Color.FromArgb(185, 170, 198),
             Font = new Font("Segoe UI Semibold", 8F),
             BackColor = Color.Transparent
@@ -92,12 +91,23 @@ internal sealed class SetupForm : Form
         topBar.Controls.Add(topTitle);
         topTitle.MouseDown += DragWindow;
 
+        var windowButtons = new Panel { Dock = DockStyle.Right, Width = 92, BackColor = Color.Transparent };
+        var minimizeButton = CreateWindowButton("—", Color.FromArgb(226, 216, 237));
+        minimizeButton.Location = new Point(0, 0);
+        minimizeButton.Click += (_, _) => WindowState = FormWindowState.Minimized;
+        var closeButton = CreateWindowButton("×", Color.FromArgb(255, 255, 255));
+        closeButton.Location = new Point(46, 0);
+        closeButton.Click += (_, _) => Close();
+        windowButtons.Controls.Add(minimizeButton);
+        windowButtons.Controls.Add(closeButton);
+        topBar.Controls.Add(windowButtons);
+        windowButtons.BringToFront();
 
         var eyebrow = new Label
         {
             Text = "MINECRAFT  •  YOUR NEXT ADVENTURE",
             AutoSize = true,
-            Location = new Point(54, 118),
+            Location = new Point(40, 92),
             ForeColor = Color.FromArgb(214, 160, 255),
             Font = new Font("Segoe UI Semibold", 9F),
             BackColor = Color.Transparent
@@ -108,9 +118,9 @@ internal sealed class SetupForm : Form
         {
             Text = "MaoLauncher",
             AutoSize = true,
-            Location = new Point(50, 143),
+            Location = new Point(36, 122),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI Semibold", 35F, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 32F, FontStyle.Bold),
             BackColor = Color.Transparent
         };
         background.Controls.Add(logo);
@@ -119,49 +129,72 @@ internal sealed class SetupForm : Form
         {
             Text = "Твой путь в мир Minecraft начинается здесь",
             AutoSize = true,
-            Location = new Point(56, 202),
+            Location = new Point(42, 180),
             ForeColor = Color.FromArgb(213, 202, 222),
             Font = new Font("Segoe UI", 11F),
             BackColor = Color.Transparent
         };
         background.Controls.Add(tagline);
 
-        _status.Location = new Point(56, 278);
-        _status.Size = new Size(540, 24);
+        _status.Location = new Point(42, 270);
+        _status.Size = new Size(420, 24);
         background.Controls.Add(_status);
 
-        _percent.Location = new Point(650, 278);
-        _percent.Size = new Size(54, 24);
+        _percent.Location = new Point(470, 270);
+        _percent.Size = new Size(48, 24);
         background.Controls.Add(_percent);
 
-        _progress.Location = new Point(56, 309);
-        _progress.Size = new Size(648, 12);
+        _progress.Location = new Point(42, 304);
+        _progress.Size = new Size(476, 12);
         background.Controls.Add(_progress);
-
-        _install.Location = new Point(56, 350);
-        _install.Size = new Size(232, 46);
-        background.Controls.Add(_install);
-
-        _cancel.Location = new Point(302, 350);
-        _cancel.Size = new Size(112, 46);
-        _cancel.Enabled = false;
-        background.Controls.Add(_cancel);
 
         var footer = new Label
         {
             Text = "MAOLAUNCHER  •  ОФИЦИАЛЬНЫЙ УСТАНОВЩИК",
             AutoSize = true,
-            Location = new Point(56, 414),
+            Location = new Point(42, 475),
             ForeColor = Color.FromArgb(145, 130, 157),
             Font = new Font("Segoe UI", 7.5F),
             BackColor = Color.Transparent
         };
         background.Controls.Add(footer);
 
-        _install.Click += async (_, _) => await InstallAsync();
-        _cancel.Click += (_, _) => _cancellation?.Cancel();
         FormClosing += (_, _) => _cancellation?.Cancel();
         Shown += async (_, _) => await InstallAsync();
+    }
+
+    private static Button CreateWindowButton(string text, Color color)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Width = 46,
+            Height = 46,
+            Dock = DockStyle.None,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.Transparent,
+            ForeColor = color,
+            Font = new Font("Segoe UI", 15F, FontStyle.Regular),
+            Cursor = Cursors.Hand,
+            UseVisualStyleBackColor = false,
+            TabStop = false
+        };
+        button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(70, 255, 255, 255);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(100, 255, 255, 255);
+        return button;
+    }
+
+    private static void WriteErrorLog(string message, Exception? error)
+    {
+        try
+        {
+            var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MaoLauncherSetup");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, "setup.log");
+            File.AppendAllText(path, $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}{error}{Environment.NewLine}");
+        }
+        catch { }
     }
 
     private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
@@ -232,7 +265,6 @@ internal sealed class SetupForm : Form
         if (_cancellation is not null) return;
         _cancellation = new CancellationTokenSource();
         var token = _cancellation.Token;
-        SetBusy(true);
         SetProgress(0);
         string? work = null;
 
@@ -341,7 +373,10 @@ internal sealed class SetupForm : Form
             try
             {
                 Directory.Move(stagedInstall, installRoot);
-                File.WriteAllText(Path.Combine(installRoot, "launcher.version"), version);
+                var versionPath = Path.Combine(installRoot, "launcher.version");
+                var versionTemp = versionPath + ".new";
+                File.WriteAllText(versionTemp, version);
+                File.Move(versionTemp, versionPath, true);
                 installedExe = FindInstalledLauncher(installRoot)
                     ?? throw new InvalidDataException("После установки не найден MaoLauncher.exe.");
             }
@@ -366,12 +401,12 @@ internal sealed class SetupForm : Form
         }
         catch (OperationCanceledException)
         {
-            SetStatus("Операция отменена.");
+            WriteErrorLog("Установка прервана закрытием окна.", null);
         }
         catch (Exception ex)
         {
-            SetStatus("Не удалось запустить или обновить MaoLauncher.");
-            MessageBox.Show(this, ex.Message, "MaoLauncher Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Ошибка. Установщик завершает работу…");
+            WriteErrorLog("Не удалось установить или обновить MaoLauncher.", ex);
         }
         finally
         {
@@ -381,7 +416,11 @@ internal sealed class SetupForm : Form
             }
             _cancellation?.Dispose();
             _cancellation = null;
-            if (!IsDisposed) SetBusy(false);
+            if (!IsDisposed && !token.IsCancellationRequested)
+            {
+                try { await Task.Delay(1400); } catch { }
+                if (!IsDisposed) Close();
+            }
         }
     }
 
@@ -446,10 +485,7 @@ internal sealed class SetupForm : Form
 
                 if (!process.HasExited)
                 {
-                    MessageBox.Show(this,
-                        "Сначала закрой MaoLauncher (в том числе из системного трея), затем нажми «Повторить» и запусти установщик ещё раз.",
-                        "Нужно закрыть MaoLauncher", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return false;
+                    throw new InvalidOperationException("Не удалось закрыть запущенный MaoLauncher. Установщик завершает работу без изменения установленной версии.");
                 }
             }
         }
@@ -487,14 +523,7 @@ internal sealed class SetupForm : Form
 
     private void SetStatus(string value)
     {
-        if (!IsDisposed) _status.Text = value;
-    }
-
-    private void SetBusy(bool busy)
-    {
-        _install.Enabled = !busy;
-        _cancel.Enabled = busy;
-        _install.Text = busy ? "Проверяем…" : "Проверить и запустить";
+        if (!IsDisposed && !Disposing && IsHandleCreated) _status.Text = value;
     }
 
     private static void ExtractZipSafely(string zipPath, string destination)
