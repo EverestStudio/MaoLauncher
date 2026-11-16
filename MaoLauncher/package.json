@@ -54,6 +54,7 @@
     }
   },
   "dependencies": {
-    "minecraft-launcher-core": "3.18.2"
+    "minecraft-launcher-core": "3.18.2",
+    "@xhayper/discord-rpc": "1.5.1"
   }
 }
