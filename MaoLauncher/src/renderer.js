@@ -219,6 +219,32 @@ async function checkServer() {
   } catch (e) { setUnavailable(e.message); }
 }
 configureNavigation();
+async function refreshTwitchNiriska() {
+  const card = byId('twitchNiriska');
+  const status = byId('twitchNiriskaStatus');
+  const title = byId('twitchNiriskaTitle');
+  if (!card || !status || !title) return;
+  try {
+    const response = await fetch('https://decapi.me/twitch/uptime/niriska', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Twitch status unavailable');
+    const uptime = (await response.text()).trim();
+    const live = uptime.length > 0 && !/offline|not found|error/i.test(uptime);
+    card.classList.toggle('isLive', live);
+    status.textContent = live ? 'В эфире · ' + uptime : 'Не в сети';
+    title.textContent = '';
+    if (live) {
+      try {
+        const titleResponse = await fetch('https://decapi.me/twitch/title/niriska', { cache: 'no-store' });
+        if (titleResponse.ok) title.textContent = (await titleResponse.text()).trim();
+      } catch {}
+    }
+  } catch {
+    status.textContent = 'Статус недоступен';
+    title.textContent = '';
+    card.classList.remove('isLive');
+  }
+}
+byId('twitchNiriskaAvatar')?.addEventListener('error', event => { event.currentTarget.src = 'https://static-cdn.jtvnw.net/jtv-static/404_preview-300x300.png'; });
 function navigate(id) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id)); document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('active', v.dataset.view === id)); byId('crumb').textContent = ({ home: 'Главная', serverview: 'Сервер', newsview: 'Новости', settingsview: 'Настройки', profileview: 'Профиль', mapview: 'Онлайн карта', updatesview: 'Обновления', aboutview: 'О лаунчере' })[id] || 'Главная'; }
 document.querySelectorAll('[data-view],[data-go]').forEach(b => b.addEventListener('click', () => { if (b.dataset.view === 'profileview') return; navigate(b.dataset.view || b.dataset.go); }));
 byId('playButton').addEventListener('click', async () => { if (launcherUpdateAvailable) { gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressBar').style.width = '2%'; byId('progressText').textContent = 'Подготовка обновления…'; try { const result = await window.launcher.installLauncherUpdate(); if (result.upToDate) { launcherUpdateAvailable = false; gameBusy = false; renderPlayButton(); notify('Установлена последняя версия MaoLauncher.'); } } catch (error) { notify(error.message, true); gameBusy = false; renderPlayButton(); } return; } if (!config.activeProfile) { navigate('profileview'); document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; requestAnimationFrame(() => byId('profileName').focus()); notify('Введите ник, чтобы создать офлайн-профиль.', true); return; } gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressText').textContent = 'Подготовка Fabric 26.2…'; try { const r = await window.launcher.installGame(); gameInstalled = true; gameUpdateAvailable = false; byId('progressWrap').hidden = true; byId('progressText').textContent = ''; notify(r.started ? 'Игра запущена на mc.maopickme.ru.' : 'Игра установлена.'); } catch (e) { notify(e.message, true); await refreshState(); } finally { gameBusy = false; renderPlayButton(); } });
