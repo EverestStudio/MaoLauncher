@@ -194,13 +194,29 @@ async function hostedServerStatus() {
   })();
   try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
 }
+async function publicServerStats() {
+  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(STATUS_ADDRESS), { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error('Сервис статистики вернул HTTP ' + response.status + '.');
+  const data = await response.json();
+  if (typeof data.online !== 'boolean') throw new Error('Сервис статистики вернул неполные данные.');
+  const onlineCount = Number(data.players?.online);
+  const maxCount = Number(data.players?.max);
+  const sample = Array.isArray(data.players?.list) ? data.players.list.map(player => typeof player === 'string' ? { name: player } : player).filter(player => player?.name) : [];
+  return {
+    online: data.online,
+    players: { online: Number.isFinite(onlineCount) ? onlineCount : 0, max: Number.isFinite(maxCount) ? maxCount : 0, sample },
+    version: data.version || GAME_VERSION,
+    ping: Number.isFinite(data.debug?.ping) ? data.debug.ping : null,
+    sample, motd: (data.motd?.clean || data.motd?.raw || []).join?.(' ') || '',
+    source: 'mcsrvstat.us'
+  };
+}
 async function serverStatus() {
-  const [hosted, direct, ping] = await Promise.allSettled([hostedServerStatus(), directServerStatus(), measureServerPing()]);
-  if (hosted.status === 'fulfilled') {
-    return { ...hosted.value, ping: ping.status === 'fulfilled' ? ping.value : null, sample: direct.status === 'fulfilled' ? direct.value.sample : [] };
-  }
-  if (direct.status === 'fulfilled') return direct.value;
-  throw new Error(hosted.reason?.message || direct.reason?.message || 'Сервер недоступен.');
+  const [publicStats, direct, hosted, ping] = await Promise.allSettled([publicServerStats(), directServerStatus(), hostedServerStatus(), measureServerPing()]);
+  if (publicStats.status === 'fulfilled') return { ...publicStats.value, ping: ping.status === 'fulfilled' ? ping.value : publicStats.value.ping };
+  if (direct.status === 'fulfilled') return { ...direct.value, ping: ping.status === 'fulfilled' ? ping.value : direct.value.ping };
+  if (hosted.status === 'fulfilled') return { ...hosted.value, ping: ping.status === 'fulfilled' ? ping.value : null };
+  throw new Error(publicStats.reason?.message || direct.reason?.message || hosted.reason?.message || 'Сервер недоступен.');
 }
 async function ensureJava() {
   if (process.platform !== 'win32') return 'java';
