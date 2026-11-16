@@ -169,7 +169,8 @@ internal sealed class SetupForm : Form
         {
             Text = text,
             Width = 46,
-            Dock = DockStyle.Right,
+            Height = 46,
+            Dock = DockStyle.None,
             FlatStyle = FlatStyle.Flat,
             BackColor = Color.Transparent,
             ForeColor = color,
