@@ -86,6 +86,69 @@ async function fetchServerNews() {
 }
 
 function emit(channel, data) { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data); }
+const DISCORD_CLIENT_ID = '1571975710409629776';
+let discordClient = null;
+let discordReconnectTimer = null;
+let discordGameStartedAt = null;
+
+function updateDiscordPresence() {
+  const user = discordClient?.user;
+  if (!user) return;
+  const activity = discordGameStartedAt
+    ? {
+        details: `Играет в Minecraft ${GAME_VERSION}`,
+        state: 'Запущено через MaoLauncher',
+        startTimestamp: discordGameStartedAt,
+        instance: false
+      }
+    : {
+        details: 'В лаунчере MaoLauncher',
+        state: 'Готов к игре',
+        instance: false
+      };
+  Promise.resolve(user.setActivity(activity)).catch(() => {});
+}
+
+function scheduleDiscordReconnect() {
+  if (quitting || discordReconnectTimer) return;
+  discordReconnectTimer = setTimeout(() => {
+    discordReconnectTimer = null;
+    connectDiscordPresence();
+  }, 15000);
+  discordReconnectTimer.unref?.();
+}
+
+async function connectDiscordPresence() {
+  if (quitting || discordClient) return;
+  let client;
+  try {
+    const { Client: DiscordClient } = require('@xhayper/discord-rpc');
+    client = new DiscordClient({ clientId: DISCORD_CLIENT_ID });
+    discordClient = client;
+    client.on('ready', updateDiscordPresence);
+    client.on('disconnected', () => {
+      if (discordClient !== client) return;
+      discordClient = null;
+      scheduleDiscordReconnect();
+    });
+    client.on('error', () => {
+      if (discordClient !== client) return;
+      discordClient = null;
+      try { client.destroy(); } catch {}
+      scheduleDiscordReconnect();
+    });
+    await client.login();
+  } catch {
+    if (!client || discordClient === client) discordClient = null;
+    try { client?.destroy(); } catch {}
+    scheduleDiscordReconnect();
+  }
+}
+
+function setDiscordGameState(running) {
+  discordGameStartedAt = running ? new Date() : null;
+  updateDiscordPresence();
+}
 function profileUuid(name) {
   const bytes = crypto.createHash('md5').update(`OfflinePlayer:${name}`).digest();
   bytes[6] = (bytes[6] & 0x0f) | 0x30;
@@ -323,7 +386,7 @@ async function runMinecraft() {
     const launcher = new Client();
     launcher.on('progress', progress => emit('install:progress', { stage: progress.type || 'minecraft', current: progress.task || 0, total: progress.total || 0, label: 'Загрузка игровых файлов' }));
     launcher.on('debug', line => { if (/failed|error/i.test(line)) emit('game:log', String(line).slice(-300)); });
-    launcher.on('close', code => emit('game:closed', { code }));
+    launcher.on('close', code => { setDiscordGameState(false); emit('game:closed', { code }); });
     const javaPath = await ensureJava();
     const token = selected.uuid.replaceAll('-', '');
     const auth = { access_token: token, client_token: token, uuid: token, name: selected.name, user_properties: '{}', meta: { type: 'legacy' } };
@@ -337,6 +400,7 @@ async function runMinecraft() {
     });
     if (!process) throw new Error('Не удалось запустить игру. Проверьте Java 25 и журнал лаунчера.');
     saveSettings({ ...settings, installManifest: JSON.stringify({ game: GAME_VERSION, loader, profile: profile.id, mods: modVersions.map(mod => `${mod.id}:${mod.version.id}`), files: modFiles }) });
+    setDiscordGameState(true);
     emit('game:started', { pid: process.pid, profile: selected.name });
     return { started: true, pid: process.pid, loader, modCount: modVersions.length };
   })();
@@ -518,7 +582,15 @@ app.whenReady().then(async () => {
   });
   createTray();
   await createWindow();
+  connectDiscordPresence();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
-app.on('before-quit', () => { quitting = true; });
+app.on('before-quit', () => {
+  quitting = true;
+  if (discordReconnectTimer) clearTimeout(discordReconnectTimer);
+  discordReconnectTimer = null;
+  try { discordClient?.user?.clearActivity(); } catch {}
+  try { discordClient?.destroy(); } catch {}
+  discordClient = null;
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
