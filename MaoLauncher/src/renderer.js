@@ -218,7 +218,7 @@ async function checkServer() {
   } catch (e) { setUnavailable(e.message); }
 }
 configureNavigation();
-const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }];
+const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }, { name: 'tomskiybtw', url: 'https://www.twitch.tv/tomskiybtw' }];
 let twitchRefreshPromise = null;
 async function readTwitchStreamer(streamer) {
   const response = await fetch('https://decapi.me/twitch/uptime/' + encodeURIComponent(streamer.name), { cache: 'no-store' });
@@ -231,20 +231,52 @@ async function readTwitchStreamer(streamer) {
   }
   return { ...streamer, live, uptime, title };
 }
+function setStreamerAvatarFallback(image) {
+  image.hidden = true;
+  const fallback = image.nextElementSibling;
+  if (fallback) fallback.hidden = false;
+}
+async function loadStreamerAvatar(card, streamer) {
+  const image = card.querySelector('.streamAvatar');
+  if (!image) return;
+  const fallback = image.nextElementSibling;
+  image.addEventListener('error', () => {
+    if (image.dataset.fallbackTried !== 'true') {
+      image.dataset.fallbackTried = 'true';
+      image.src = 'https://avatarsapi.com/twitch/' + encodeURIComponent(streamer.name) + '?size=96';
+      return;
+    }
+    setStreamerAvatarFallback(image);
+  });
+  try {
+    const response = await fetch('https://decapi.me/twitch/avatar/' + encodeURIComponent(streamer.name), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Avatar lookup failed');
+    const avatarUrl = (await response.text()).trim();
+    if (!/^https:\/\//i.test(avatarUrl)) throw new Error('Invalid avatar URL');
+    image.src = avatarUrl;
+  } catch {
+    image.dataset.fallbackTried = 'true';
+    image.src = 'https://avatarsapi.com/twitch/' + encodeURIComponent(streamer.name) + '?size=96';
+  }
+  if (fallback) fallback.textContent = streamer.name.slice(0, 1).toUpperCase();
+}
 async function refreshTwitchStreams() {
   if (twitchRefreshPromise) return twitchRefreshPromise;
   const directory = byId('streamDirectory'), liveList = byId('liveStreams');
   if (!directory || !liveList) return;
   twitchRefreshPromise = (async () => {
-    directory.innerHTML = TWITCH_STREAMERS.map(streamer => '<a class="streamDirectoryCard" data-streamer="' + safe(streamer.name) + '" href="' + streamer.url + '" target="_blank" rel="noopener noreferrer"><img class="streamAvatar" alt="" src="https://decapi.me/twitch/avatar/' + encodeURIComponent(streamer.name) + '"><span class="streamDetails"><strong>' + safe(streamer.name) + '</strong><span class="streamState"><i></i><span>Проверяем статус…</span></span></span></a>').join('');
+    directory.innerHTML = TWITCH_STREAMERS.map(streamer => '<a class="streamDirectoryCard" data-streamer="' + safe(streamer.name) + '" href="' + streamer.url + '" target="_blank" rel="noopener noreferrer"><img class="streamAvatar" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><span class="streamAvatarFallback" hidden>' + safe(streamer.name.slice(0, 1).toUpperCase()) + '</span><span class="streamDetails"><strong>' + safe(streamer.name) + '</strong><span class="streamState"><i></i><span>Проверяем статус…</span></span></span></a>').join('');
     const results = await Promise.all(TWITCH_STREAMERS.map(async streamer => { try { return await readTwitchStreamer(streamer); } catch { return { ...streamer, live: false, unavailable: true, uptime: '', title: '' }; } }));
+    await Promise.all(TWITCH_STREAMERS.map(streamer => {
+      const card = directory.querySelector('[data-streamer="' + streamer.name + '"]');
+      return card ? loadStreamerAvatar(card, streamer) : Promise.resolve();
+    }));
     for (const result of results) {
       const card = directory.querySelector('[data-streamer="' + result.name + '"]');
       if (!card) continue;
       card.classList.toggle('isLive', result.live);
       const label = card.querySelector('.streamState span');
       if (label) label.textContent = result.unavailable ? 'Статус недоступен' : result.live ? 'В эфире · ' + result.uptime : 'Не в сети';
-      card.querySelector('img')?.addEventListener('error', event => { event.currentTarget.hidden = true; });
     }
     const active = results.filter(result => result.live);
     liveList.innerHTML = active.length ? active.map(result => '<a class="liveStreamCard" href="' + result.url + '" target="_blank" rel="noopener noreferrer"><span class="liveBadge">● LIVE</span><strong>' + safe(result.name) + '</strong><small>' + safe(result.title || 'Прямая трансляция · ' + result.uptime) + '</small></a>').join('') : '';
