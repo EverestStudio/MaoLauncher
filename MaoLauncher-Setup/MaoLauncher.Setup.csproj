@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MaoLauncher-Setup</AssemblyName>
-    <ApplicationIcon>..\\MaoLauncher\\src\\assets\\mao-icon.ico</ApplicationIcon>
+    <ApplicationIcon>../MaoLauncher/src/assets/mao-icon.ico</ApplicationIcon>
     <RootNamespace>MaoLauncher.Setup</RootNamespace>
   </PropertyGroup>
 
@@ -14,7 +14,7 @@
     <EmbeddedResource Include="..\MaoLauncher\src\assets\mao-banner.png"
                       Link="mao-banner.png"
                       LogicalName="MaoLauncher.Setup.mao-banner.png" />
-    <EmbeddedResource Include="..\\MaoLauncher\\src\\assets\\mao-icon.ico"
+    <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.ico"
                       Link="mao-icon.ico"
                       LogicalName="MaoLauncher.Setup.mao-icon.ico" />
   </ItemGroup>
