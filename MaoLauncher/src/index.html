@@ -67,6 +67,58 @@ aside{display:none!important}
 #home .sectionhead .textbutton[data-go],
 #home .serverStrip button[data-go]{display:none!important}
 @media(max-width:680px){.main{padding:0 11px 16px!important}}
+
+/* Minimal top controls: text-only window actions and a compact profile button. */
+.topActions .windowBtn,
+.topActions .windowBtn.close{
+  width:auto!important;
+  min-width:0!important;
+  height:auto!important;
+  padding:4px 5px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--muted)!important;
+  font-size:21px!important;
+  line-height:1!important;
+}
+.topActions .windowBtn:hover,
+.topActions .windowBtn.close:hover{
+  background:transparent!important;
+  color:var(--text)!important;
+}
+.topActions .profileNav{
+  min-width:0!important;
+  padding:3px 6px!important;
+  border:0!important;
+  border-color:transparent!important;
+  border-radius:4px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  font-size:11px!important;
+  line-height:1.2!important;
+}
+.topActions .profileNav:hover{
+  border-color:transparent!important;
+  background:var(--surface2)!important;
+}
+.topActions .profileButtonAvatar{
+  width:23px!important;
+  height:23px!important;
+  margin-right:5px!important;
+  border:0!important;
+}
+.topActions .profileDock{
+  min-width:0!important;
+  width:auto!important;
+}
+@media(max-width:680px){
+  .topActions .windowBtn,
+  .topActions .windowBtn.close{padding:4px!important;font-size:19px!important}
+  .topActions .profileNav{padding:3px 4px!important}
+}
+
 </style></head><body><div class="app"><aside><div class="brand"><span class="brandText">MaoLauncher<small>MINECRAFT LAUNCHER</small></span></div><div class="navlabel">МЕНЮ</div><nav class="nav"><button class="active" data-view="home"><span>⌂</span><span class="navText">Главная</span></button><button data-view="serverview"><span>◉</span><span class="navText">Сервер</span></button><button data-view="settingsview"><span>⚙</span><span class="navText">Настройки</span></button><button data-view="profileview"><span>♙</span><span class="navText">Профиль</span></button><button data-view="updatesview"><span>↻</span><span class="navText">Обновления</span></button><button data-view="aboutview"><span>ⓘ</span><span class="navText">О лаунчере</span></button></nav><div class="sidefoot"><div class="pixel">⛏️</div><strong>Играйте. Увлекайтесь.<br>Побеждайте!</strong><small id="launcherVersionLabel">MaoLauncher v—</small></div></aside><main class="main"><header class="topbar"><div><strong id="crumb">Главная</strong><span> / MaoLauncher</span></div><div class="topActions"><span class="pill" id="topStatus" hidden>ПРОВЕРКА</span><button class="windowBtn" id="minimizeWindow" title="Свернуть">−</button><button class="windowBtn windowControls" id="maximizeWindow" title="Развернуть">□</button><button class="windowBtn close windowControls" id="closeWindow" title="Закрыть">×</button></div></header>
 <section class="view active" id="home"><div class="hero"><div class="heroContent"><div class="eyebrow">MINECRAFT · FABRIC 26.2</div><h1>MaoLauncher</h1><p>Твой путь в мир Minecraft начинается здесь!</p><div class="row"><button class="primary" id="playButton">Проверка файлов…</button><button class="quiet" id="copyAddress">Копировать IP</button></div><div class="progress" id="progressWrap" hidden><i id="progressBar"></i></div><div id="progressText" class="muted" style="font-size:10px;margin-top:5px"></div></div></div><div class="serverStrip"><div class="serverSignal"><i class="onlineDot"></i><div><strong id="serverStatus">Проверяем сервер…</strong><small id="sideStatus">mc.maopickme.ru</small></div></div><div class="stripStat"><span id="players">— / —</span><small>Игроки онлайн</small></div><div class="stripStat"><span id="gameVersion">Fabric 26.2</span><small>Версия клиента</small></div><button class="secondary" data-go="serverview">Подробнее</button></div><div class="dashboard"><div><div class="sectionhead"><div><h2>Новости сервера</h2><p>Последние объявления сообщества</p></div><button class="textbutton" data-go="newsview">Все новости →</button></div><div class="panel" id="homeNews"></div><div class="sectionhead"><div><h2>Сборка сервера</h2><p>Автоматическая установка Fabric-модов</p></div></div><div class="panel buildbox"><div><span class="badge">FABRIC · MC 26.2</span><h3>Сборка MaoLauncher</h3><p id="buildHint">Fabric API, Mod Menu, EmoteCraft, Simple Voice Chat, Sodium, Iris, Litematica и JourneyMap</p></div><span class="muted" style="font-size:11px">11 модов + зависимости</span></div></div><section class="panel sidepanel"><h3>Быстрый доступ</h3><div class="quickLinks"><a class="quickLink" href="#" data-quick="top"><span class="quickIcon">♜</span>Топ игроков</a><a class="quickLink" href="#" data-quick="shop"><span class="quickIcon">◈</span>Магазин</a><a class="quickLink" href="#" data-quick="discord"><span class="quickIcon">◉</span>Discord сервер</a><a class="quickLink" href="#" data-quick="website"><span class="quickIcon">↗</span>Наш сайт</a></div><div class="twitchSection"><h3>Twitch-стримы</h3><a class="twitchCard" id="twitchNiriska" href="https://www.twitch.tv/niriska" target="_blank" rel="noopener noreferrer"><img class="twitchAvatar" id="twitchNiriskaAvatar" src="https://decapi.me/twitch/avatar/niriska" alt="Аватар niriska"><span class="twitchInfo"><span class="twitchName">niriska</span><span class="twitchStatus"><i class="twitchDot"></i><span id="twitchNiriskaStatus">Проверяем статус…</span></span><span class="twitchTitle" id="twitchNiriskaTitle"></span></span></a></div></section></div></section>
 <section class="view" id="newsview"><div class="sectionhead"><div><h2>Новости сервера</h2><p>Объявления сообщества</p></div></div><div class="panel" id="allNews"></div></section>
