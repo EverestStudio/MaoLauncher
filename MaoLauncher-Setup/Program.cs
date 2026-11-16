@@ -453,7 +453,13 @@ internal sealed class SetupForm : Form
     private static string? FindInstalledLauncher(string installRoot)
     {
         if (!Directory.Exists(installRoot)) return null;
-        return Directory.GetFiles(installRoot, "MaoLauncher.exe", SearchOption.AllDirectories).FirstOrDefault();
+        foreach (var executable in Directory.GetFiles(installRoot, "MaoLauncher.exe", SearchOption.AllDirectories))
+        {
+            var resources = Path.Combine(Path.GetDirectoryName(executable)!, "resources");
+            if (File.Exists(Path.Combine(resources, "app.asar")))
+                return executable;
+        }
+        return null;
     }
 
     private static int CompareVersions(string left, string right)
