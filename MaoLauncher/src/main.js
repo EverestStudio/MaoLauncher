@@ -195,17 +195,12 @@ async function hostedServerStatus() {
   try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
 }
 async function serverStatus() {
-  const direct = await Promise.allSettled([directServerStatus(), measureServerPing()]);
-  if (direct[0].status === 'fulfilled') {
-    const value = direct[0].value;
-    return { ...value, ping: direct[1].status === 'fulfilled' ? direct[1].value : value.ping };
+  const [hosted, direct, ping] = await Promise.allSettled([hostedServerStatus(), directServerStatus(), measureServerPing()]);
+  if (hosted.status === 'fulfilled') {
+    return { ...hosted.value, ping: ping.status === 'fulfilled' ? ping.value : null, sample: direct.status === 'fulfilled' ? direct.value.sample : [] };
   }
-  try {
-    const hosted = await hostedServerStatus();
-    return { ...hosted, online: false, ping: null, sample: [], error: direct[0].reason?.message || 'Сервер не отвечает.' };
-  } catch (error) {
-    throw new Error(direct[0].reason?.message || error.message || 'Сервер недоступен.');
-  }
+  if (direct.status === 'fulfilled') return direct.value;
+  throw new Error(hosted.reason?.message || direct.reason?.message || 'Сервер недоступен.');
 }
 async function ensureJava() {
   if (process.platform !== 'win32') return 'java';
