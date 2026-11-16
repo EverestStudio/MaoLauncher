@@ -12,6 +12,9 @@ const execFileAsync = promisify(execFile);
 
 const GAME_VERSION = '26.2';
 const SERVER = 'mc.maopickme.ru';
+const STATUS_HOST = '135.181.126.154';
+const STATUS_PORT = 25737;
+const STATUS_ADDRESS = `${STATUS_HOST}:${STATUS_PORT}`;
 const NEWS_FEED_URL = 'https://hm572194.webhm.cloud/api/news.php';
 const LAUNCHER_VERSION = app.getVersion();
 const PROJECTS = [
@@ -101,34 +104,43 @@ function readVarInt(buffer, offset = 0) {
   return { value, next: position };
 }
 async function directServerStatus() {
-  let host = SERVER, port = 25565;
-  try { const srv = await dns.resolveSrv(`_minecraft._tcp.${SERVER}`); if (srv[0]) { host = srv[0].name.replace(/\.$/, ''); port = srv[0].port; } } catch {}
-  const address = (await dns.lookup(host)).address;
-  const addressBytes = Buffer.from(SERVER, 'utf8');
+  const host = STATUS_HOST, port = STATUS_PORT;
+  const addressBytes = Buffer.from(host, 'utf8');
   const handshakeData = Buffer.concat([varInt(767), varInt(addressBytes.length), addressBytes, Buffer.from([port >> 8, port & 255]), varInt(1)]);
   const handshake = Buffer.concat([varInt(handshakeData.length + 1), Buffer.from([0]), handshakeData]);
-  const request = Buffer.from([1, 0]);
-  const packet = Buffer.concat([handshake, request]);
+  const packet = Buffer.concat([handshake, Buffer.from([1, 0])]);
   const started = performance.now();
   const response = await new Promise((resolve, reject) => {
-    const socket = net.createConnection({ host: address, port });
+    const socket = net.createConnection({ host, port });
     const chunks = []; let total = 0;
     const timer = setTimeout(() => socket.destroy(new Error('Тайм-аут ответа сервера.')), 4000);
     socket.on('connect', () => socket.write(packet));
-    socket.on('data', chunk => { chunks.push(chunk); total += chunk.length; if (total >= 5) { try { const data = Buffer.concat(chunks, total); const length = readVarInt(data); const pid = readVarInt(data, length.next); if (pid.value !== 0) throw new Error('Сервер прислал неизвестный пакет.'); const jsonLength = readVarInt(data, pid.next); if (data.length >= jsonLength.next + jsonLength.value) { clearTimeout(timer); socket.end(); resolve(JSON.parse(data.subarray(jsonLength.next, jsonLength.next + jsonLength.value).toString('utf8'))); } } catch (error) { clearTimeout(timer); socket.destroy(); reject(error); } } });
+    socket.on('data', chunk => {
+      chunks.push(chunk); total += chunk.length;
+      try {
+        const data = Buffer.concat(chunks, total);
+        const length = readVarInt(data);
+        const pid = readVarInt(data, length.next);
+        if (pid.value !== 0) throw new Error('Сервер прислал неизвестный пакет.');
+        const jsonLength = readVarInt(data, pid.next);
+        if (data.length >= jsonLength.next + jsonLength.value) {
+          clearTimeout(timer); socket.end();
+          resolve(JSON.parse(data.subarray(jsonLength.next, jsonLength.next + jsonLength.value).toString('utf8')));
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError || /пакет/.test(error.message)) {
+          clearTimeout(timer); socket.destroy(); reject(error);
+        }
+      }
+    });
     socket.on('error', error => { clearTimeout(timer); reject(error); });
   });
   return { online: true, players: response.players || {}, version: response.version?.name || GAME_VERSION, ping: Math.round(performance.now() - started), sample: response.players?.sample || [], motd: response.description?.text || '' };
 }
 async function measureServerPing() {
-  let host = SERVER, port = 25565;
-  try {
-    const records = await dns.resolveSrv(`_minecraft._tcp.${SERVER}`);
-    if (records[0]) { host = records[0].name.replace(/\.$/, ''); port = records[0].port; }
-  } catch {}
   return new Promise((resolve, reject) => {
     const started = performance.now();
-    const socket = net.createConnection({ host, port });
+    const socket = net.createConnection({ host: STATUS_HOST, port: STATUS_PORT });
     const timer = setTimeout(() => socket.destroy(new Error('Тайм-аут проверки пинга.')), 4000);
     socket.once('connect', () => {
       clearTimeout(timer);
@@ -146,7 +158,7 @@ async function hostedServerStatus() {
   if (hostedStatusPromise) return hostedStatusPromise;
   hostedStatusPromise = (async () => {
     const url = 'https://minecraft-hosting.net/resolve';
-    const initial = await fetch(url);
+    const initial = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!initial.ok) throw new Error(`Minecraft-Hosting вернул HTTP ${initial.status}.`);
     const html = await initial.text();
     const token = html.match(/name="_token" value="([^"]+)"/)?.[1];
@@ -154,8 +166,9 @@ async function hostedServerStatus() {
     const cookies = initial.headers.getSetCookie().map(cookie => cookie.split(';')[0]).join('; ');
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie, origin: 'https://minecraft-hosting.net', referer: url },
-      body: new URLSearchParams({ _token: token, server_type: 'java', server_address: SERVER })
+      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookies, origin: 'https://minecraft-hosting.net', referer: url },
+      body: new URLSearchParams({ _token: token, server_type: 'java', server_address: STATUS_ADDRESS }),
+      signal: AbortSignal.timeout(8000)
     });
     if (!response.ok) throw new Error(`Проверка сервера: HTTP ${response.status}.`);
     const result = await response.text();
@@ -167,17 +180,13 @@ async function hostedServerStatus() {
     };
     const [playersOnline, playersMax] = field('Игроки').split('/').map(value => Number(value.trim()));
     if (!field('Версия') || !Number.isFinite(playersOnline) || !Number.isFinite(playersMax)) {
-      const offline = /server-status-card server-offline/.test(result);
-      if (!offline) throw new Error('Формат ответа Minecraft-Hosting изменился.');
+      if (!/server-status-card server-offline/.test(result)) throw new Error('Формат ответа Minecraft-Hosting изменился.');
     }
     const value = {
       online,
       players: { online: Number.isFinite(playersOnline) ? playersOnline : 0, max: Number.isFinite(playersMax) ? playersMax : 0 },
       version: field('Версия') || GAME_VERSION,
-      ping: null,
-      sample: [],
-      motd: '',
-      source: 'minecraft-hosting.net'
+      ping: null, sample: [], motd: '', source: 'minecraft-hosting.net'
     };
     hostedStatusCache = value;
     hostedStatusUpdatedAt = Date.now();
@@ -186,12 +195,17 @@ async function hostedServerStatus() {
   try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
 }
 async function serverStatus() {
-  const [hosted, direct, ping] = await Promise.allSettled([hostedServerStatus(), directServerStatus(), measureServerPing()]);
-  if (hosted.status === 'fulfilled') {
-    return { ...hosted.value, ping: ping.status === 'fulfilled' ? ping.value : null, sample: direct.status === 'fulfilled' ? direct.value.sample : [] };
+  const direct = await Promise.allSettled([directServerStatus(), measureServerPing()]);
+  if (direct[0].status === 'fulfilled') {
+    const value = direct[0].value;
+    return { ...value, ping: direct[1].status === 'fulfilled' ? direct[1].value : value.ping };
   }
-  if (direct.status === 'fulfilled') return direct.value;
-  throw new Error(hosted.reason?.message || direct.reason?.message || 'Не удалось получить статус сервера.');
+  try {
+    const hosted = await hostedServerStatus();
+    return { ...hosted, online: false, ping: null, sample: [], error: direct[0].reason?.message || 'Сервер не отвечает.' };
+  } catch (error) {
+    throw new Error(direct[0].reason?.message || error.message || 'Сервер недоступен.');
+  }
 }
 async function ensureJava() {
   if (process.platform !== 'win32') return 'java';
@@ -318,7 +332,7 @@ async function runMinecraft() {
   try { return await installPromise; } finally { installPromise = null; }
 }
 async function createWindow() {
-  mainWindow = new BrowserWindow({ width: 1280, height: 820, minWidth: 760, minHeight: 620, title: 'MaoLauncher', icon: path.join(__dirname, 'assets', 'mao-icon.png'), backgroundColor: '#100e16', frame: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  mainWindow = new BrowserWindow({ width: 1280, height: 820, minWidth: 1280, maxWidth: 1280, minHeight: 820, maxHeight: 820, resizable: false, maximizable: false, title: 'MaoLauncher', icon: path.join(__dirname, 'assets', 'mao-icon.png'), backgroundColor: '#100e16', frame: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url.startsWith('https://')) shell.openExternal(url); return { action: 'deny' }; });
   await mainWindow.loadFile(path.join(__dirname, 'index.html'));
@@ -488,7 +502,6 @@ app.whenReady().then(async () => {
       if (readSettings().minimizeBehavior === 'tray') mainWindow.hide();
       else mainWindow.minimize();
     }
-    else if (action === 'maximize') mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
     else if (action === 'close') { quitting = true; mainWindow.close(); }
     return true;
   });
