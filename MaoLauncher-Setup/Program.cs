@@ -54,6 +54,10 @@ internal sealed class SetupForm : Form
     public SetupForm()
     {
         Text = "MaoLauncher Setup";
+        using (var iconStream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-icon.ico"))
+        {
+            if (iconStream is not null) Icon = new Icon(iconStream);
+        }
         ClientSize = new Size(560, 520);
         MinimumSize = new Size(560, 520);
         MaximumSize = new Size(560, 520);
