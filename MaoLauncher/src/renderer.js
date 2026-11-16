@@ -218,41 +218,41 @@ async function checkServer() {
   } catch (e) { setUnavailable(e.message); }
 }
 configureNavigation();
-async function refreshTwitchNiriska() {
-  const card = byId('twitchNiriska');
-  const status = byId('twitchNiriskaStatus');
-  const title = byId('twitchNiriskaTitle');
-  if (!card || !status || !title) return;
-  const avatar = byId('twitchNiriskaAvatar');
-  if (avatar && avatar.dataset.loaded !== 'true') {
-    avatar.dataset.loaded = 'true';
-    fetch('https://decapi.me/twitch/avatar/niriska').then(r => r.ok ? r.text() : '').then(url => {
-      const value = url.trim();
-      if (/^https:\/\//i.test(value) && avatar.isConnected) avatar.src = value;
-    }).catch(() => {});
+const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }];
+let twitchRefreshPromise = null;
+async function readTwitchStreamer(streamer) {
+  const response = await fetch('https://decapi.me/twitch/uptime/' + encodeURIComponent(streamer.name), { cache: 'no-store' });
+  if (!response.ok) throw new Error('Twitch status unavailable');
+  const uptime = (await response.text()).trim();
+  const live = Boolean(uptime) && !/offline|not found|error|invalid/i.test(uptime);
+  let title = '';
+  if (live) {
+    try { const titleResponse = await fetch('https://decapi.me/twitch/title/' + encodeURIComponent(streamer.name), { cache: 'no-store' }); if (titleResponse.ok) title = (await titleResponse.text()).trim(); } catch {}
   }
-  try {
-    const response = await fetch('https://decapi.me/twitch/uptime/niriska', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Twitch status unavailable');
-    const uptime = (await response.text()).trim();
-    const live = uptime.length > 0 && !/offline|not found|error/i.test(uptime);
-    card.classList.toggle('isLive', live);
-    status.textContent = live ? 'В эфире · ' + uptime : 'Не в сети';
-    title.textContent = '';
-    if (live) {
-      try {
-        const titleResponse = await fetch('https://decapi.me/twitch/title/niriska', { cache: 'no-store' });
-        if (titleResponse.ok) title.textContent = (await titleResponse.text()).trim();
-      } catch {}
-    }
-  } catch {
-    status.textContent = 'Статус недоступен';
-    title.textContent = '';
-    card.classList.remove('isLive');
-  }
+  return { ...streamer, live, uptime, title };
 }
-byId('twitchNiriskaAvatar')?.addEventListener('error', event => { event.currentTarget.src = 'https://static-cdn.jtvnw.net/jtv-static/404_preview-300x300.png'; });
-function navigate(id) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id)); document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('active', v.dataset.view === id)); byId('crumb').textContent = ({ home: 'Главная', serverview: 'Сервер', newsview: 'Новости', settingsview: 'Настройки', profileview: 'Профиль', mapview: 'Карта сервера', supportview: 'Поддержка', updatesview: 'Обновления', aboutview: 'О лаунчере' })[id] || 'Главная'; }
+async function refreshTwitchStreams() {
+  if (twitchRefreshPromise) return twitchRefreshPromise;
+  const directory = byId('streamDirectory'), liveList = byId('liveStreams');
+  if (!directory || !liveList) return;
+  twitchRefreshPromise = (async () => {
+    directory.innerHTML = TWITCH_STREAMERS.map(streamer => '<a class="streamDirectoryCard" data-streamer="' + safe(streamer.name) + '" href="' + streamer.url + '" target="_blank" rel="noopener noreferrer"><img class="streamAvatar" alt="" src="https://decapi.me/twitch/avatar/' + encodeURIComponent(streamer.name) + '"><span class="streamDetails"><strong>' + safe(streamer.name) + '</strong><span class="streamState"><i></i><span>Проверяем статус…</span></span></span></a>').join('');
+    const results = await Promise.all(TWITCH_STREAMERS.map(async streamer => { try { return await readTwitchStreamer(streamer); } catch { return { ...streamer, live: false, unavailable: true, uptime: '', title: '' }; } }));
+    for (const result of results) {
+      const card = directory.querySelector('[data-streamer="' + result.name + '"]');
+      if (!card) continue;
+      card.classList.toggle('isLive', result.live);
+      const label = card.querySelector('.streamState span');
+      if (label) label.textContent = result.unavailable ? 'Статус недоступен' : result.live ? 'В эфире · ' + result.uptime : 'Не в сети';
+      card.querySelector('img')?.addEventListener('error', event => { event.currentTarget.hidden = true; });
+    }
+    const active = results.filter(result => result.live);
+    liveList.innerHTML = active.length ? active.map(result => '<a class="liveStreamCard" href="' + result.url + '" target="_blank" rel="noopener noreferrer"><span class="liveBadge">● LIVE</span><strong>' + safe(result.name) + '</strong><small>' + safe(result.title || 'Прямая трансляция · ' + result.uptime) + '</small></a>').join('') : '';
+  })().finally(() => { twitchRefreshPromise = null; });
+  return twitchRefreshPromise;
+}
+byId('refreshTwitchStreams')?.addEventListener('click', refreshTwitchStreams);
+function navigate(id) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id)); document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('active', v.dataset.view === id)); byId('crumb').textContent = ({ home: 'Главная', serverview: 'Сервер', newsview: 'Новости', settingsview: 'Настройки', profileview: 'Профиль', mapview: 'Карта сервера', streamsview: 'Стримы', supportview: 'Поддержка', updatesview: 'Обновления', aboutview: 'О лаунчере' })[id] || 'Главная'; if (id === 'streamsview') refreshTwitchStreams(); }
 document.querySelectorAll('[data-view],[data-go]').forEach(b => b.addEventListener('click', () => { if (b.dataset.view === 'profileview') return; navigate(b.dataset.view || b.dataset.go); }));
 byId('playButton').addEventListener('click', async () => { if (launcherUpdateAvailable) { gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressBar').style.width = '2%'; byId('progressText').textContent = 'Подготовка обновления…'; try { const result = await window.launcher.installLauncherUpdate(); if (result.upToDate) { launcherUpdateAvailable = false; gameBusy = false; renderPlayButton(); notify('Установлена последняя версия MaoLauncher.'); } } catch (error) { notify(error.message, true); gameBusy = false; renderPlayButton(); } return; } if (!config.activeProfile) { navigate('profileview'); document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; requestAnimationFrame(() => byId('profileName').focus()); notify('Введите ник, чтобы создать офлайн-профиль.', true); return; } gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressText').textContent = 'Подготовка Fabric 26.2…'; try { const r = await window.launcher.installGame(); gameInstalled = true; gameUpdateAvailable = false; byId('progressWrap').hidden = true; byId('progressText').textContent = ''; notify(r.started ? 'Игра запущена на mc.maopickme.ru.' : 'Игра установлена.'); } catch (e) { notify(e.message, true); await refreshState(); } finally { gameBusy = false; renderPlayButton(); } });
 byId('offlineChoice').addEventListener('click', () => { document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; const field = byId('profileName'); field.disabled = false; field.readOnly = false; requestAnimationFrame(() => field.focus()); });
@@ -279,4 +279,4 @@ window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = fa
 window.launcher.onProgress(d => { byId('progressWrap').hidden = false; const pct = d.total ? Math.max(3, Math.min(100, Math.round(d.current / d.total * 100))) : 6; byId('progressBar').style.width = pct + '%'; byId('progressText').textContent = (d.label || 'Загрузка') + (d.total ? ' · ' + d.current + '/' + d.total : ''); });
 window.launcher.onGameStarted(d => notify('Minecraft запущен: ' + d.profile)); window.launcher.onGameClosed(d => { if (d.code) notify('Игра завершилась с кодом ' + d.code, true); }); window.launcher.onGameLog(line => { byId('progressText').textContent = line; });
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (config.theme === 'auto') render(); });
-(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); try { const version = await window.launcher.getLauncherVersion(); byId('launcherVersionLabel').textContent = 'MaoLauncher v' + version; } catch {} await refreshState(); checkServer(); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); })();
+(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); try { const version = await window.launcher.getLauncherVersion(); byId('launcherVersionLabel').textContent = 'MaoLauncher v' + version; } catch {} await refreshState(); checkServer(); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); setInterval(() => { if (byId('streamsview')?.classList.contains('active')) refreshTwitchStreams(); }, 180000); })();
