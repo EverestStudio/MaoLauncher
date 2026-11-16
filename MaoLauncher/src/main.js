@@ -128,7 +128,7 @@ async function directServerStatus() {
           resolve(JSON.parse(data.subarray(jsonLength.next, jsonLength.next + jsonLength.value).toString('utf8')));
         }
       } catch (error) {
-        if (error instanceof SyntaxError || /пакет/.test(error.message)) {
+        if (error instanceof SyntaxError || /неизвестный пакет/.test(error.message)) {
           clearTimeout(timer); socket.destroy(); reject(error);
         }
       }
