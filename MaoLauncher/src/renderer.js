@@ -224,6 +224,14 @@ async function refreshTwitchNiriska() {
   const status = byId('twitchNiriskaStatus');
   const title = byId('twitchNiriskaTitle');
   if (!card || !status || !title) return;
+  const avatar = byId('twitchNiriskaAvatar');
+  if (avatar && avatar.dataset.loaded !== 'true') {
+    avatar.dataset.loaded = 'true';
+    fetch('https://decapi.me/twitch/avatar/niriska').then(r => r.ok ? r.text() : '').then(url => {
+      const value = url.trim();
+      if (/^https:\/\//i.test(value) && avatar.isConnected) avatar.src = value;
+    }).catch(() => {});
+  }
   try {
     const response = await fetch('https://decapi.me/twitch/uptime/niriska', { cache: 'no-store' });
     if (!response.ok) throw new Error('Twitch status unavailable');
