@@ -141,7 +141,7 @@ function renderProfiles() {
   const active = config.profiles.find(profile => profile.name === config.activeProfile);
   const button = document.querySelector('.profileNav');
   if (button) button.innerHTML = active
-    ? '<img class="profileButtonAvatar" alt="" src="https://mc-heads.net/avatar/' + encodeURIComponent(active.name) + '/32"><span class="navText">' + safe(active.name) + '</span><span class="profileIdentity"><span class="profileNickname">' + safe(active.name) + '</span><small class="profileType">' + (active.type === 'elyby' ? 'Ely.by' : 'Оффлайн') + '</small></span>'
+    ? '<img class="profileButtonAvatar" alt="" src="https://mc-heads.net/avatar/' + encodeURIComponent(active.name) + '/32"><span class="profileIdentity"><span class="profileNickname">' + safe(active.name) + '</span><small class="profileType">' + (active.type === 'elyby' ? 'Ely.by' : 'Оффлайн') + '</small></span>'
     : '<span>♙</span><span class="navText">Профиль</span>';
   button?.querySelector('.profileButtonAvatar')?.addEventListener('error', event => { event.currentTarget.hidden = true; });
   const menu = byId('profileMenu');
