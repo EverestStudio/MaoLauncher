@@ -220,16 +220,9 @@ async function checkServer() {
 configureNavigation();
 const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }, { name: 'tomskiybtw', url: 'https://www.twitch.tv/tomskiybtw' }];
 let twitchRefreshPromise = null;
-async function readTwitchStreamer(streamer) {
-  const response = await fetch('https://decapi.me/twitch/uptime/' + encodeURIComponent(streamer.name), { cache: 'no-store' });
-  if (!response.ok) throw new Error('Twitch status unavailable');
-  const uptime = (await response.text()).trim();
-  const live = Boolean(uptime) && !/offline|not found|error|invalid/i.test(uptime);
-  let title = '';
-  if (live) {
-    try { const titleResponse = await fetch('https://decapi.me/twitch/title/' + encodeURIComponent(streamer.name), { cache: 'no-store' }); if (titleResponse.ok) title = (await titleResponse.text()).trim(); } catch {}
-  }
-  return { ...streamer, live, uptime, title };
+async function readTwitchStreamer(streamer, status) {
+  if (status?.unavailable) throw new Error(status.error || 'Twitch status unavailable');
+  return { ...streamer, live: Boolean(status?.live), uptime: status?.uptime || '', title: status?.title || '' };
 }
 function setStreamerAvatarFallback(image) {
   image.hidden = true;
@@ -266,7 +259,13 @@ async function refreshTwitchStreams() {
   if (!directory || !liveList) return;
   twitchRefreshPromise = (async () => {
     directory.innerHTML = TWITCH_STREAMERS.map(streamer => '<a class="streamDirectoryCard" data-streamer="' + safe(streamer.name) + '" href="' + streamer.url + '" target="_blank" rel="noopener noreferrer"><img class="streamAvatar" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><span class="streamAvatarFallback" hidden>' + safe(streamer.name.slice(0, 1).toUpperCase()) + '</span><span class="streamDetails"><strong>' + safe(streamer.name) + '</strong><span class="streamState"><i></i><span>Проверяем статус…</span></span></span></a>').join('');
-    const results = await Promise.all(TWITCH_STREAMERS.map(async streamer => { try { return await readTwitchStreamer(streamer); } catch { return { ...streamer, live: false, unavailable: true, uptime: '', title: '' }; } }));
+    let statuses = [];
+    try { statuses = await window.launcher.getTwitchStreams(); } catch {}
+    const results = await Promise.all(TWITCH_STREAMERS.map(async streamer => {
+      const status = statuses.find(item => item.name === streamer.name);
+      try { return await readTwitchStreamer(streamer, status || { unavailable: true, error: 'Не удалось получить статус' }); }
+      catch { return { ...streamer, live: false, unavailable: true, uptime: '', title: '' }; }
+    }));
     await Promise.all(TWITCH_STREAMERS.map(streamer => {
       const card = directory.querySelector('[data-streamer="' + streamer.name + '"]');
       return card ? loadStreamerAvatar(card, streamer) : Promise.resolve();
