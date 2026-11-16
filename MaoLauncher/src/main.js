@@ -530,6 +530,34 @@ async function installLauncherUpdate() {
   } catch (error) { fs.rmSync(work, { recursive: true, force: true }); throw error; }
 }
 
+const TWITCH_CHANNELS = ['niriska', 'similar_cav', 'tomskiybtw'];
+async function fetchTwitchText(endpoint, channel) {
+  const response = await fetch(`https://decapi.me/twitch/${endpoint}/${encodeURIComponent(channel)}`, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!response.ok) throw new Error(`Twitch API HTTP ${response.status}`);
+  return (await response.text()).trim();
+}
+async function fetchTwitchStreams() {
+  return Promise.all(TWITCH_CHANNELS.map(async name => {
+    try {
+      const uptime = await fetchTwitchText('uptime', name);
+      if (!uptime) throw new Error('Empty Twitch API response');
+      const unavailable = /\[error|error occurred|unable to|not found|invalid|channel name required/i.test(uptime);
+      if (unavailable) throw new Error(uptime);
+      const live = !/offline|not currently live|no live stream|is not live/i.test(uptime);
+      let title = '';
+      if (live) {
+        try { title = await fetchTwitchText('title', name); } catch {}
+      }
+      return { name, live, uptime: live ? uptime : '', title, unavailable: false };
+    } catch (error) {
+      return { name, live: false, uptime: '', title: '', unavailable: true, error: String(error?.message || error) };
+    }
+  }));
+}
+
 app.whenReady().then(async () => {
   settingsPath = path.join(app.getPath('userData'), 'settings.json');
   gameRoot = path.join(app.getPath('userData'), 'game');
@@ -571,6 +599,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('news:get', () => fetchServerNews());
   ipcMain.handle('launcher:version', () => LAUNCHER_VERSION);
   ipcMain.handle('server:status', () => serverStatus());
+  ipcMain.handle('twitch:status', () => fetchTwitchStreams());
   ipcMain.handle('window:action', (_event, action) => {
     if (!mainWindow) return false;
     if (action === 'minimize') {
