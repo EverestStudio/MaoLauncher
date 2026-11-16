@@ -65,6 +65,14 @@ jobs:
         working-directory: MaoLauncher
         run: npm install
 
+      - name: Check JavaScript syntax
+        working-directory: MaoLauncher
+        shell: pwsh
+        run: |
+          node --check src/main.js
+          node --check src/preload.js
+          node --check src/renderer.js
+
       - name: Build Windows launcher ZIP
         working-directory: MaoLauncher
         run: npm run dist:win -- --x64
