@@ -2,8 +2,8 @@ const defaults = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior
 let config = { ...defaults }, gameInstalled = false, gameBusy = false, gameUpdateAvailable = false, launcherUpdateAvailable = false, toastTimer;
 const byId = (id) => document.getElementById(id);
 function configureNavigation() {
-  const profileButton = document.querySelector('.nav button[data-view="profileview"]');
-  const mapButton = document.querySelector('.nav button[data-view="updatesview"]');
+  const profileButton = document.querySelector('.profileDockMount [data-view="profileview"]');
+  const mapButton = document.querySelector('.nav button[data-view="mapview"]');
   const serverButton = document.querySelector('.nav button[data-view="serverview"]');
   const aboutButton = document.querySelector('.nav button[data-view="aboutview"]');
   const sidefoot = document.querySelector('.sidefoot');
@@ -33,7 +33,7 @@ function configureNavigation() {
   serverStrip.style.gridTemplateColumns = '1.3fr repeat(3, minmax(0, 1fr)) auto';
   if (mapButton) {
     mapButton.dataset.view = 'mapview';
-    mapButton.innerHTML = '<span>▧</span><span class="navText">Онлайн карта</span>';
+    mapButton.innerHTML = '<span>▧</span><span class="navText">Карта сервера</span>';
   }
   const gameVersionLabel = serverStrip.querySelector('#gameVersion')?.parentElement?.querySelector('small');
   if (gameVersionLabel) gameVersionLabel.textContent = 'Версия сервера';
@@ -81,7 +81,7 @@ function configureNavigation() {
     menu.className = 'profileMenu';
     menu.hidden = true;
     dock.append(menu, profileButton);
-    document.querySelector('.topActions')?.append(dock);
+    document.querySelector('.profileDockMount')?.append(dock);
     profileButton.setAttribute('aria-haspopup', 'true');
     profileButton.setAttribute('aria-expanded', 'false');
     profileButton.addEventListener('click', event => {
@@ -171,7 +171,7 @@ function showAccountChoices() { byId('offlineForm').hidden = true; byId('elybyNo
 function renderPlayButton() { const b = byId('playButton'); b.textContent = gameBusy ? 'Подготовка…' : (launcherUpdateAvailable || gameUpdateAvailable) ? 'Обновить' : gameInstalled ? 'Играть' : 'Установить'; b.disabled = gameBusy; }
 const originalTextNodes = new WeakMap();
 const englishText = {
-  'МЕНЮ':'MENU','Главная':'Home','Сервер':'Server','Настройки':'Settings','Профиль':'Profile','Обновления':'Updates','О лаунчере':'About',
+  'МЕНЮ':'MENU','Главная':'Home','Новости':'News','Карта сервера':'Server map','Поддержка':'Support','Сервер':'Server','Настройки':'Settings','Профиль':'Profile','Обновления':'Updates','О лаунчере':'About',
   'Твой путь в мир Minecraft начинается здесь!':'Your Minecraft adventure starts here!',
   'Новости сервера':'Server news','Последние объявления сообщества':'Latest community announcements','Пока нет новостей':'No news yet',
   'Сборка сервера':'Server modpack','Автоматическая установка Fabric-модов':'Automatic Fabric mod installation','Быстрый доступ':'Quick links',
@@ -252,7 +252,7 @@ async function refreshTwitchNiriska() {
   }
 }
 byId('twitchNiriskaAvatar')?.addEventListener('error', event => { event.currentTarget.src = 'https://static-cdn.jtvnw.net/jtv-static/404_preview-300x300.png'; });
-function navigate(id) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id)); document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('active', v.dataset.view === id)); byId('crumb').textContent = ({ home: 'Главная', serverview: 'Сервер', newsview: 'Новости', settingsview: 'Настройки', profileview: 'Профиль', mapview: 'Онлайн карта', updatesview: 'Обновления', aboutview: 'О лаунчере' })[id] || 'Главная'; }
+function navigate(id) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id)); document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('active', v.dataset.view === id)); byId('crumb').textContent = ({ home: 'Главная', serverview: 'Сервер', newsview: 'Новости', settingsview: 'Настройки', profileview: 'Профиль', mapview: 'Карта сервера', supportview: 'Поддержка', updatesview: 'Обновления', aboutview: 'О лаунчере' })[id] || 'Главная'; }
 document.querySelectorAll('[data-view],[data-go]').forEach(b => b.addEventListener('click', () => { if (b.dataset.view === 'profileview') return; navigate(b.dataset.view || b.dataset.go); }));
 byId('playButton').addEventListener('click', async () => { if (launcherUpdateAvailable) { gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressBar').style.width = '2%'; byId('progressText').textContent = 'Подготовка обновления…'; try { const result = await window.launcher.installLauncherUpdate(); if (result.upToDate) { launcherUpdateAvailable = false; gameBusy = false; renderPlayButton(); notify('Установлена последняя версия MaoLauncher.'); } } catch (error) { notify(error.message, true); gameBusy = false; renderPlayButton(); } return; } if (!config.activeProfile) { navigate('profileview'); document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; requestAnimationFrame(() => byId('profileName').focus()); notify('Введите ник, чтобы создать офлайн-профиль.', true); return; } gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressText').textContent = 'Подготовка Fabric 26.2…'; try { const r = await window.launcher.installGame(); gameInstalled = true; gameUpdateAvailable = false; byId('progressWrap').hidden = true; byId('progressText').textContent = ''; notify(r.started ? 'Игра запущена на mc.maopickme.ru.' : 'Игра установлена.'); } catch (e) { notify(e.message, true); await refreshState(); } finally { gameBusy = false; renderPlayButton(); } });
 byId('offlineChoice').addEventListener('click', () => { document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; const field = byId('profileName'); field.disabled = false; field.readOnly = false; requestAnimationFrame(() => field.focus()); });
