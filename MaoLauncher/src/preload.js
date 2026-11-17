@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('launcher', Object.freeze({
   getLauncherVersion: () => ipcRenderer.invoke('launcher:version'),
   installLauncherUpdate: () => ipcRenderer.invoke('launcher:update-install'),
   serverStatus: () => ipcRenderer.invoke('server:status'),
+  getTwitchStreams: () => ipcRenderer.invoke('twitch:status'),
   windowAction: (action) => ipcRenderer.invoke('window:action', action),
   onProgress: (callback) => ipcRenderer.on('install:progress', (_event, data) => callback(data)),
   onLauncherUpdateProgress: (callback) => ipcRenderer.on('launcher-update:progress', (_event, data) => callback(data)),
