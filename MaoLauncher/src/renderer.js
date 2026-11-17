@@ -121,9 +121,11 @@ function resizeSnowfall() {
   snowfallCanvas.style.height = window.innerHeight + 'px';
   snowfallContext.setTransform(ratio, 0, 0, ratio, 0, 0);
   const count = Math.min(72, Math.max(18, Math.round(window.innerWidth * window.innerHeight / 22000)));
+  const winterEmojis = ['☃︎', '🎅', '🎄', '❄️', '☃️', '🎁', '🦌'];
   snowfallParticles = Array.from({ length: count }, () => ({
     x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
-    radius: 1 + Math.random() * 2.1, speed: .35 + Math.random() * .85,
+    emoji: winterEmojis[Math.floor(Math.random() * winterEmojis.length)],
+    size: 13 + Math.random() * 13, speed: .35 + Math.random() * .85,
     drift: -.35 + Math.random() * .7, phase: Math.random() * Math.PI * 2
   }));
 }
@@ -138,8 +140,11 @@ function drawSnowfall() {
     if (flake.y > height + 5) { flake.y = -5; flake.x = Math.random() * width; }
     if (flake.x < -5) flake.x = width + 5;
     if (flake.x > width + 5) flake.x = -5;
-    ctx.beginPath(); ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(245,239,255,' + (0.32 + flake.radius * .13) + ')'; ctx.fill();
+    ctx.save();
+    ctx.font = (flake.size) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(flake.emoji, flake.x, flake.y);
+    ctx.restore();
   }
   snowfallFrame = requestAnimationFrame(drawSnowfall);
 }
@@ -248,7 +253,7 @@ function applyLanguage() {
   byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
   byId('closeWindow').title = english ? 'Close' : 'Закрыть';
 }
-function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); byId('memorySetting').value = String(config.memory); byId('memoryValue').value = (config.memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + (config.language === 'ru' ? ' ГБ' : ' GB'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
+function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); const memoryPosition = Math.round((Math.max(2048, Math.min(16384, Number(config.memory) || 4096)) - 2048) / (16384 - 2048) * 200); byId('memorySetting').value = String(memoryPosition); byId('memoryBubble').textContent = String(memoryPosition); byId('memorySlider').style.setProperty('--memory-progress', (memoryPosition / 2) + '%'); byId('memoryValue').value = (config.memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + (config.language === 'ru' ? ' ГБ' : ' GB'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
 async function refreshState() { try { gameInstalled = Boolean((await window.launcher.gameState()).installed); } catch { gameInstalled = false; } renderPlayButton(); }
 function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
 async function checkServer() {
@@ -343,9 +348,9 @@ byId('profileName').addEventListener('input', event => { const name = event.targ
 byId('reloadMap').addEventListener('click', () => { const frame = byId('serverMap'); frame.src = 'http://135.181.126.154:25602/?refresh=' + Date.now(); });
 async function copyAddress() { await navigator.clipboard.writeText('mc.maopickme.ru'); notify('IP mc.maopickme.ru скопирован.'); }
 ['copyAddress', 'copySide', 'copyDetail'].forEach(id => byId(id)?.addEventListener('click', copyAddress)); byId('refreshServer').addEventListener('click', checkServer);
-byId('memorySetting').addEventListener('input', event => { byId('memoryValue').value = (Number(event.target.value) / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + ' ГБ'; });
+byId('memorySetting').addEventListener('input', event => { const position = Number(event.target.value); const memory = Math.round((2048 + position / 200 * (16384 - 2048)) / 64) * 64; byId('memoryBubble').textContent = String(position); byId('memorySlider').style.setProperty('--memory-progress', (position / 2) + '%'); byId('memoryValue').value = (memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + ' ГБ'; });
 for (const [id, key] of [['memorySetting', 'memory'], ['themeSetting', 'theme'], ['languageSetting', 'language'], ['minimizeBehavior', 'minimizeBehavior'], ['snowfallSetting', 'snowfall']]) byId(id).addEventListener('change', async e => {
-  config = await window.launcher.saveSettings({ ...config, [key]: key === 'memory' ? Number(e.target.value) : key === 'snowfall' ? e.target.checked : e.target.value });
+  config = await window.launcher.saveSettings({ ...config, [key]: key === 'memory' ? Math.round((2048 + Number(e.target.value) / 200 * (16384 - 2048)) / 64) * 64 : key === 'snowfall' ? e.target.checked : e.target.value });
   render();
   if (key === 'language') applyLanguage();
 });
