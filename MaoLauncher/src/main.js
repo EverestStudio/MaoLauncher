@@ -24,7 +24,7 @@ const PROJECTS = [
   ['player-animation-library', 'Player Animation Library'], ['sodium', 'Sodium'], ['iris', 'Iris'],
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
-const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', profiles: [], activeProfile: '', installManifest: '' };
+const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', installManifest: '' };
 let mainWindow;
 let tray;
 let quitting = false;
@@ -45,6 +45,7 @@ function saveSettings(value) {
   clean.theme = ['auto', 'light', 'dark'].includes(clean.theme) ? clean.theme : 'auto';
   clean.language = ['ru', 'en'].includes(clean.language) ? clean.language : 'ru';
   clean.minimizeBehavior = ['tray', 'taskbar'].includes(clean.minimizeBehavior) ? clean.minimizeBehavior : 'tray';
+  clean.snowfall = clean.snowfall !== false;
   clean.profiles = Array.isArray(clean.profiles) ? clean.profiles.filter(p => p && /^[A-Za-z0-9_]{3,16}$/.test(p.name) && /^[0-9a-f-]{36}$/i.test(p.uuid)).map(p => ({ ...p, type: 'offline' })).slice(0, 20) : [];
   if (!clean.profiles.some(p => p.name === clean.activeProfile)) clean.activeProfile = clean.profiles[0]?.name || '';
   fs.writeFileSync(settingsPath, JSON.stringify(clean, null, 2));
