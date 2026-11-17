@@ -227,7 +227,7 @@ const englishText = {
   'Ник игрока':'Player name','Создать профиль':'Create profile','Назад к выбору':'Back to choices',
   'Оперативная память':'Memory','Максимум для Minecraft':'Maximum for Minecraft','Тема':'Theme','Светлая, тёмная или системная':'Light, dark or system',
   'Язык':'Language','Язык интерфейса':'Interface language','Файлы игры':'Game files','Папка Minecraft и модов':'Minecraft and mods folder',
-  'Открыть папку':'Open folder','Проверить обновления':'Check for updates','Сворачивание лаунчера':'Minimize behavior',
+  'Открыть папку':'Open folder','Проверить обновления':'Check for updates','Сворачивание лаунчера':'Minimize behavior','Снежинки на фоне':'Snowfall background','Включить или отключить анимацию снега':'Enable or disable the snowfall animation','Включено':'Enabled',
   'Куда скрывать окно при нажатии «Свернуть»':'Where to send the window when minimized',
   'В системный трей':'To system tray','На панель задач':'To taskbar','Светлая':'Light','Тёмная':'Dark','Авто':'Auto',
   'Играйте. Увлекайтесь.':'Play. Explore.','Побеждайте!':'Win!'
