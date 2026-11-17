@@ -121,12 +121,14 @@ function resizeSnowfall() {
   snowfallCanvas.style.height = window.innerHeight + 'px';
   snowfallContext.setTransform(ratio, 0, 0, ratio, 0, 0);
   const count = Math.min(72, Math.max(18, Math.round(window.innerWidth * window.innerHeight / 22000)));
-  const winterEmojis = ['☃︎', '🎅', '🎄', '❄️', '☃️', '🎁', '🦌'];
   snowfallParticles = Array.from({ length: count }, () => ({
     x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
-    emoji: winterEmojis[Math.floor(Math.random() * winterEmojis.length)],
-    size: 13 + Math.random() * 13, speed: .35 + Math.random() * .85,
-    drift: -.35 + Math.random() * .7, phase: Math.random() * Math.PI * 2
+    emoji: '❄️',
+    size: 11 + Math.random() * 9, speed: .3 + Math.random() * .7,
+    drift: -.25 + Math.random() * .5, phase: Math.random() * Math.PI * 2,
+    rotation: Math.random() * Math.PI * 2,
+    rotationSpeed: (Math.random() * .018 + .006) * (Math.random() < .5 ? -1 : 1),
+    opacity: .55 + Math.random() * .35
   }));
 }
 function drawSnowfall() {
@@ -137,13 +139,17 @@ function drawSnowfall() {
     flake.phase += .012;
     flake.x += flake.drift + Math.sin(flake.phase) * .22;
     flake.y += flake.speed;
-    if (flake.y > height + 5) { flake.y = -5; flake.x = Math.random() * width; }
-    if (flake.x < -5) flake.x = width + 5;
-    if (flake.x > width + 5) flake.x = -5;
+    flake.rotation += flake.rotationSpeed;
+    if (flake.y > height + 12) { flake.y = -12; flake.x = Math.random() * width; }
+    if (flake.x < -12) flake.x = width + 12;
+    if (flake.x > width + 12) flake.x = -12;
     ctx.save();
+    ctx.translate(flake.x, flake.y);
+    ctx.rotate(flake.rotation);
+    ctx.globalAlpha = flake.opacity;
     ctx.font = (flake.size) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(flake.emoji, flake.x, flake.y);
+    ctx.fillText(flake.emoji, 0, 0);
     ctx.restore();
   }
   snowfallFrame = requestAnimationFrame(drawSnowfall);
