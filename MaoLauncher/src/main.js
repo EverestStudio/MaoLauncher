@@ -200,64 +200,7 @@ async function directServerStatus(host) {
     });
     socket.on('error', error => { clearTimeout(timer); reject(error); });
   });
-  return { online: true, players: response.players || {}, version: response.version?.name || GAME_VERSION, ping: Math.round(performance.now() - started), sample: response.players?.sample || [], motd: response.description?.text || '' };
-}
-async function measureServerPing() {
-  return new Promise((resolve, reject) => {
-    const started = performance.now();
-    const socket = net.createConnection({ host, port: STATUS_PORT });
-    const timer = setTimeout(() => socket.destroy(new Error('Тайм-аут проверки пинга.')), 4000);
-    socket.once('connect', () => {
-      clearTimeout(timer);
-      resolve(Math.round(performance.now() - started));
-      socket.end();
-    });
-    socket.once('error', error => { clearTimeout(timer); reject(error); });
-  });
-}
-let hostedStatusCache = null;
-let hostedStatusUpdatedAt = 0;
-let hostedStatusPromise = null;
-async function hostedServerStatus() {
-  if (hostedStatusCache && Date.now() - hostedStatusUpdatedAt < 60_000) return hostedStatusCache;
-  if (hostedStatusPromise) return hostedStatusPromise;
-  hostedStatusPromise = (async () => {
-    const url = 'https://minecraft-hosting.net/resolve';
-    const initial = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!initial.ok) throw new Error(`Minecraft-Hosting вернул HTTP ${initial.status}.`);
-    const html = await initial.text();
-    const token = html.match(/name="_token" value="([^"]+)"/)?.[1];
-    if (!token) throw new Error('Не удалось прочитать форму статуса Minecraft-Hosting.');
-    const cookies = initial.headers.getSetCookie().map(cookie => cookie.split(';')[0]).join('; ');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookies, origin: 'https://minecraft-hosting.net', referer: url },
-      body: new URLSearchParams({ _token: token, server_type: 'java', server_address: `${STATUS_SERVERS[0]}:${STATUS_PORT}` }),
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error(`Проверка сервера: HTTP ${response.status}.`);
-    const result = await response.text();
-    const online = /server-status-card server-online/.test(result);
-    const field = label => {
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = result.match(new RegExp(`<span class="info-label">${escaped}:<\\/span>\\s*<span class="info-value">([\\s\\S]*?)<\\/span>`));
-      return match?.[1]?.replace(/<[^>]*>/g, '').trim() || '';
-    };
-    const [playersOnline, playersMax] = field('Игроки').split('/').map(value => Number(value.trim()));
-    if (!field('Версия') || !Number.isFinite(playersOnline) || !Number.isFinite(playersMax)) {
-      if (!/server-status-card server-offline/.test(result)) throw new Error('Формат ответа Minecraft-Hosting изменился.');
-    }
-    const value = {
-      online,
-      players: { online: Number.isFinite(playersOnline) ? playersOnline : 0, max: Number.isFinite(playersMax) ? playersMax : 0 },
-      version: field('Версия') || GAME_VERSION,
-      ping: null, sample: [], motd: '', source: 'minecraft-hosting.net'
-    };
-    hostedStatusCache = value;
-    hostedStatusUpdatedAt = Date.now();
-    return value;
-  })();
-  try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
+  return { online: true, players: { online: Number(response.players?.online) || 0, max: Number(response.players?.max) || 0, sample: response.players?.sample || [] }, version: response.version?.name || GAME_VERSION, ping: Math.round(performance.now() - started), sample: response.players?.sample || [], motd: response.description?.text || '' };
 }
 async function publicServerStats(address) {
   const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(`${address}:${STATUS_PORT}`), { cache: 'no-store', signal: AbortSignal.timeout(7000) });
@@ -277,21 +220,19 @@ async function publicServerStats(address) {
   };
 }
 async function serverStatus() {
+  const directResults = await Promise.allSettled(STATUS_SERVERS.map(host => directServerStatus(host)));
+  for (let index = 0; index < directResults.length; index++) {
+    const result = directResults[index];
+    if (result.status === 'fulfilled') return { ...result.value, address: STATUS_SERVERS[index] + ':' + STATUS_PORT };
+  }
+  const publicResults = await Promise.allSettled(STATUS_SERVERS.map(host => publicServerStats(host)));
   const errors = [];
-  for (const host of STATUS_SERVERS) {
-    try {
-      const result = await directServerStatus(host);
-      return { ...result, address: `${host}:${STATUS_PORT}` };
-    } catch (error) { errors.push(`${host}: ${error.message}`); }
+  for (let index = 0; index < publicResults.length; index++) {
+    const result = publicResults[index];
+    if (result.status === 'fulfilled' && result.value.online) return { ...result.value, address: STATUS_SERVERS[index] + ':' + STATUS_PORT };
+    errors.push(result.status === 'rejected' ? STATUS_SERVERS[index] + ': ' + (result.reason && result.reason.message || 'ошибка запроса') : STATUS_SERVERS[index] + ': сервер офлайн');
   }
-  for (const host of STATUS_SERVERS) {
-    try {
-      const result = await publicServerStats(host);
-      if (result.online) return { ...result, address: `${host}:${STATUS_PORT}` };
-      errors.push(`${host}: сервис сообщил, что сервер офлайн`);
-    } catch (error) { errors.push(`${host}: ${error.message}`); }
-  }
-  throw new Error('Не удалось получить статус ни с одного адреса. ' + errors.join(' · '));
+  throw new Error('Оба адреса сервера не ответили. ' + errors.join(' · '));
 }
 async function ensureJava() {
   if (process.platform !== 'win32') return 'java';
