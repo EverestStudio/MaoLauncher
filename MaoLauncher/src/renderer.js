@@ -308,18 +308,23 @@ function applyLanguage() {
 }
 function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3), true); byId('allNews').innerHTML = renderNews(config.news || []); const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
 async function refreshState() { try { gameInstalled = Boolean((await window.launcher.gameState()).installed); } catch { gameInstalled = false; } renderPlayButton(); }
-function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
+function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; if (byId('ping')) byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
+let serverCheckPromise = null;
 async function checkServer() {
+  if (serverCheckPromise) return serverCheckPromise;
+  serverCheckPromise = (async () => {
   byId('serverStatus').textContent = 'Проверяем сервер…'; byId('serverError').textContent = '';
   try {
     const r = await window.launcher.serverStatus();
     if (!r.online) return setUnavailable(r.dnsError || r.error || 'Нет ответа', 'Не в сети');
     const count = r.players.online + ' / ' + r.players.max, ping = Number.isFinite(r.ping) ? r.ping + ' мс' : '— мс';
     byId('gameVersion').textContent = r.version || '—';
-    byId('serverStatus').textContent = 'Сервер онлайн'; byId('players').textContent = count; byId('ping').textContent = ping; byId('topStatus').textContent = 'ОНЛАЙН'; byId('topStatus').className = 'pill good'; byId('sideStatus').textContent = 'Состояние сервера';
+    byId('serverStatus').textContent = 'Сервер онлайн'; byId('players').textContent = count; if (byId('ping')) byId('ping').textContent = ping; byId('topStatus').textContent = 'ОНЛАЙН'; byId('topStatus').className = 'pill good'; byId('sideStatus').textContent = r.address || 'Состояние сервера'; if (byId('serverAddressDetail')) byId('serverAddressDetail').textContent = r.address || 'm30.joinserver.xyz:25737';
     byId('serverStatusDetail').textContent = 'Сервер онлайн'; byId('playersDetail').textContent = count; byId('pingDetail').textContent = ping; byId('serverVersionDetail').textContent = r.version || 'Неизвестно';
     const sample = r.players.sample || []; byId('avatars').innerHTML = sample.slice(0, 5).map(p => "<img class='avatar' title='" + safe(p.name) + "' alt='Скин игрока' src='https://mc-heads.net/avatar/" + encodeURIComponent(p.uuid || p.name) + "/30'>").join('') + (r.players.online > 5 ? '<span class=more>+' + (r.players.online - 5) + '</span>' : '');
   } catch (e) { setUnavailable(e.message); }
+  })();
+  try { return await serverCheckPromise; } finally { serverCheckPromise = null; }
 }
 configureNavigation();
 const sidebarToggle = byId('sidebarToggle');
@@ -460,4 +465,4 @@ window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = fa
 window.launcher.onProgress(d => { byId('progressWrap').hidden = false; const pct = d.total ? Math.max(3, Math.min(100, Math.round(d.current / d.total * 100))) : 6; byId('progressBar').style.width = pct + '%'; byId('progressText').textContent = (d.label || 'Загрузка') + (d.total ? ' · ' + d.current + '/' + d.total : ''); });
 window.launcher.onGameStarted(d => notify('Minecraft запущен: ' + d.profile)); window.launcher.onGameClosed(d => { if (d.code) notify('Игра завершилась с кодом ' + d.code, true); }); window.launcher.onGameLog(line => { byId('progressText').textContent = line; });
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (config.theme === 'auto') render(); });
-(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); try { const version = await window.launcher.getLauncherVersion(); byId('launcherVersionLabel').textContent = 'MaoLauncher v' + version; } catch {} await refreshState(); checkServer(); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); setInterval(() => { if (byId('streamsview')?.classList.contains('active')) refreshTwitchStreams(); }, 180000); })();
+(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); try { const version = await window.launcher.getLauncherVersion(); byId('launcherVersionLabel').textContent = 'MaoLauncher v' + version; } catch {} await refreshState(); checkServer(); setInterval(checkServer, 7000); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); setInterval(() => { if (byId('streamsview')?.classList.contains('active')) refreshTwitchStreams(); }, 180000); })();
