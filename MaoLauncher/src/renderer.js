@@ -111,45 +111,67 @@ function configureNavigation() {
 }
 const safe = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\"', '&quot;').replaceAll("'", '&#39;');
 function notify(message, error = false) { const toast = byId('toast'); toast.textContent = message; toast.classList.toggle('error', error); toast.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4200); }
-let snowfallFrame = 0, snowfallCanvas, snowfallContext, snowfallParticles = [];
+let snowfallFrame = 0, snowfallCanvas, snowfallContext, snowfallParticles = [], snowfallLastTime = 0;
 function resizeSnowfall() {
   if (!snowfallCanvas || !snowfallContext) return;
-  const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
-  snowfallCanvas.width = Math.round(window.innerWidth * ratio);
-  snowfallCanvas.height = Math.round(window.innerHeight * ratio);
-  snowfallCanvas.style.width = window.innerWidth + 'px';
-  snowfallCanvas.style.height = window.innerHeight + 'px';
+  const ratio = Math.min(window.devicePixelRatio || 1, 1.25);
+  const width = window.innerWidth, height = window.innerHeight;
+  snowfallCanvas.width = Math.round(width * ratio);
+  snowfallCanvas.height = Math.round(height * ratio);
+  snowfallCanvas.style.width = width + 'px';
+  snowfallCanvas.style.height = height + 'px';
   snowfallContext.setTransform(ratio, 0, 0, ratio, 0, 0);
-  const count = Math.min(72, Math.max(18, Math.round(window.innerWidth * window.innerHeight / 22000)));
+  const count = Math.min(54, Math.max(18, Math.round(width * height / 30000)));
   snowfallParticles = Array.from({ length: count }, () => ({
-    x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
-    emoji: '❄️',
-    size: 11 + Math.random() * 9, speed: .3 + Math.random() * .7,
-    drift: -.25 + Math.random() * .5, phase: Math.random() * Math.PI * 2,
+    x: Math.random() * width, y: Math.random() * height,
+    size: 3 + Math.random() * 4.5,
+    speed: .28 + Math.random() * .48,
+    drift: -.18 + Math.random() * .36,
+    phase: Math.random() * Math.PI * 2,
     rotation: Math.random() * Math.PI * 2,
-    rotationSpeed: (Math.random() * .018 + .006) * (Math.random() < .5 ? -1 : 1),
-    opacity: .55 + Math.random() * .35
+    rotationSpeed: (Math.random() * .012 + .004) * (Math.random() < .5 ? -1 : 1),
+    opacity: .35 + Math.random() * .4
   }));
+  snowfallLastTime = 0;
 }
-function drawSnowfall() {
-  if (!config.snowfall || !snowfallContext) { snowfallFrame = 0; return; }
+function drawSnowfall(timestamp) {
+  if (!config.snowfall || !snowfallContext) { snowfallFrame = 0; snowfallLastTime = 0; return; }
   const ctx = snowfallContext, width = window.innerWidth, height = window.innerHeight;
+  const elapsed = snowfallLastTime ? Math.min(40, Math.max(0, timestamp - snowfallLastTime)) : 16.67;
+  const step = elapsed / 16.67;
+  snowfallLastTime = timestamp;
   ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = 'rgba(224, 211, 246, .92)';
+  ctx.lineWidth = 1.15;
+  ctx.lineCap = 'round';
   for (const flake of snowfallParticles) {
-    flake.phase += .012;
-    flake.x += flake.drift + Math.sin(flake.phase) * .22;
-    flake.y += flake.speed;
-    flake.rotation += flake.rotationSpeed;
-    if (flake.y > height + 12) { flake.y = -12; flake.x = Math.random() * width; }
-    if (flake.x < -12) flake.x = width + 12;
-    if (flake.x > width + 12) flake.x = -12;
+    flake.phase += .012 * step;
+    flake.x += (flake.drift + Math.sin(flake.phase) * .16) * step;
+    flake.y += flake.speed * step;
+    flake.rotation += flake.rotationSpeed * step;
+    if (flake.y > height + 10) { flake.y = -10; flake.x = Math.random() * width; }
+    if (flake.x < -10) flake.x = width + 10;
+    if (flake.x > width + 10) flake.x = -10;
+    const arm = flake.size;
     ctx.save();
     ctx.translate(flake.x, flake.y);
     ctx.rotate(flake.rotation);
     ctx.globalAlpha = flake.opacity;
-    ctx.font = (flake.size) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(flake.emoji, 0, 0);
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const angle = i * Math.PI / 3;
+      const dx = Math.cos(angle) * arm, dy = Math.sin(angle) * arm;
+      ctx.moveTo(-dx, -dy); ctx.lineTo(dx, dy);
+      for (const side of [-1, 1]) {
+        const bx = Math.cos(angle) * arm * .58, by = Math.sin(angle) * arm * .58;
+        const branch = arm * .32, branchAngle = angle + side * .78;
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx - Math.cos(branchAngle) * branch, by - Math.sin(branchAngle) * branch);
+        ctx.moveTo(-bx, -by);
+        ctx.lineTo(-bx + Math.cos(branchAngle) * branch, -by + Math.sin(branchAngle) * branch);
+      }
+    }
+    ctx.stroke();
     ctx.restore();
   }
   snowfallFrame = requestAnimationFrame(drawSnowfall);
@@ -165,8 +187,8 @@ function applySnowfall() {
     window.addEventListener('resize', resizeSnowfall, { passive: true });
   }
   snowfallCanvas.hidden = !config.snowfall;
-  if (config.snowfall && !snowfallFrame) snowfallFrame = requestAnimationFrame(drawSnowfall);
-  if (!config.snowfall && snowfallFrame) { cancelAnimationFrame(snowfallFrame); snowfallFrame = 0; snowfallContext?.clearRect(0, 0, window.innerWidth, window.innerHeight); }
+  if (config.snowfall && !snowfallFrame) { snowfallLastTime = 0; snowfallFrame = requestAnimationFrame(drawSnowfall); }
+  if (!config.snowfall && snowfallFrame) { cancelAnimationFrame(snowfallFrame); snowfallFrame = 0; snowfallLastTime = 0; snowfallContext?.clearRect(0, 0, window.innerWidth, window.innerHeight); }
 }
 function formatNewsText(value) {
   const source = String(value ?? '').replace(/\\\r?\n/g, '\n').replace(/\\n/g, '\n');
