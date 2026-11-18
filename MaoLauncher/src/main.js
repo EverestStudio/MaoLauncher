@@ -169,8 +169,11 @@ function readVarInt(buffer, offset = 0) {
   do { if (position >= buffer.length || position - offset > 5) throw new Error('Некорректный пакет статуса.'); byte = buffer[position++]; value |= (byte & 0x7f) << ((position - offset - 1) * 7); } while (byte & 0x80);
   return { value, next: position };
 }
-async function directServerStatus() {
-  const host = STATUS_HOST, port = STATUS_PORT;
+const STATUS_TARGETS = [
+  { host: 'm30.joinserver.xyz', port: 25737 },
+  { host: '135.181.126.154', port: 25737 }
+];
+async function directServerStatus(host, port) {
   const addressBytes = Buffer.from(host, 'utf8');
   const handshakeData = Buffer.concat([varInt(767), varInt(addressBytes.length), addressBytes, Buffer.from([port >> 8, port & 255]), varInt(1)]);
   const handshake = Buffer.concat([varInt(handshakeData.length + 1), Buffer.from([0]), handshakeData]);
@@ -178,8 +181,14 @@ async function directServerStatus() {
   const started = performance.now();
   const response = await new Promise((resolve, reject) => {
     const socket = net.createConnection({ host, port });
-    const chunks = []; let total = 0;
-    const timer = setTimeout(() => socket.destroy(new Error('Тайм-аут ответа сервера.')), 4000);
+    const chunks = []; let total = 0, settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      if (error) { socket.destroy(); reject(error); }
+      else { socket.end(); resolve(value); }
+    };
+    const timer = setTimeout(() => finish(new Error('Тайм-аут ответа сервера.')), 3000);
     socket.on('connect', () => socket.write(packet));
     socket.on('data', chunk => {
       chunks.push(chunk); total += chunk.length;
@@ -189,100 +198,40 @@ async function directServerStatus() {
         const pid = readVarInt(data, length.next);
         if (pid.value !== 0) throw new Error('Сервер прислал неизвестный пакет.');
         const jsonLength = readVarInt(data, pid.next);
-        if (data.length >= jsonLength.next + jsonLength.value) {
-          clearTimeout(timer); socket.end();
-          resolve(JSON.parse(data.subarray(jsonLength.next, jsonLength.next + jsonLength.value).toString('utf8')));
-        }
+        if (data.length >= jsonLength.next + jsonLength.value) finish(null, JSON.parse(data.subarray(jsonLength.next, jsonLength.next + jsonLength.value).toString('utf8')));
       } catch (error) {
-        if (error instanceof SyntaxError || /неизвестный пакет/.test(error.message)) {
-          clearTimeout(timer); socket.destroy(); reject(error);
-        }
+        if (error instanceof SyntaxError || /неизвестный пакет/.test(error.message)) finish(error);
       }
     });
-    socket.on('error', error => { clearTimeout(timer); reject(error); });
+    socket.on('error', error => finish(error));
   });
-  return { online: true, players: response.players || {}, version: response.version?.name || GAME_VERSION, ping: Math.round(performance.now() - started), sample: response.players?.sample || [], motd: response.description?.text || '' };
+  const players = response.players || {};
+  return { online: true, players: { online: Number(players.online) || 0, max: Number(players.max) || 0, sample: players.sample || [] }, version: response.version?.name || GAME_VERSION, ping: Math.round(performance.now() - started), sample: players.sample || [], motd: response.description?.text || '', host, source: 'direct' };
 }
-async function measureServerPing() {
-  return new Promise((resolve, reject) => {
-    const started = performance.now();
-    const socket = net.createConnection({ host: STATUS_HOST, port: STATUS_PORT });
-    const timer = setTimeout(() => socket.destroy(new Error('Тайм-аут проверки пинга.')), 4000);
-    socket.once('connect', () => {
-      clearTimeout(timer);
-      resolve(Math.round(performance.now() - started));
-      socket.end();
-    });
-    socket.once('error', error => { clearTimeout(timer); reject(error); });
-  });
-}
-let hostedStatusCache = null;
-let hostedStatusUpdatedAt = 0;
-let hostedStatusPromise = null;
-async function hostedServerStatus() {
-  if (hostedStatusCache && Date.now() - hostedStatusUpdatedAt < 60_000) return hostedStatusCache;
-  if (hostedStatusPromise) return hostedStatusPromise;
-  hostedStatusPromise = (async () => {
-    const url = 'https://minecraft-hosting.net/resolve';
-    const initial = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!initial.ok) throw new Error(`Minecraft-Hosting вернул HTTP ${initial.status}.`);
-    const html = await initial.text();
-    const token = html.match(/name="_token" value="([^"]+)"/)?.[1];
-    if (!token) throw new Error('Не удалось прочитать форму статуса Minecraft-Hosting.');
-    const cookies = initial.headers.getSetCookie().map(cookie => cookie.split(';')[0]).join('; ');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookies, origin: 'https://minecraft-hosting.net', referer: url },
-      body: new URLSearchParams({ _token: token, server_type: 'java', server_address: STATUS_ADDRESS }),
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error(`Проверка сервера: HTTP ${response.status}.`);
-    const result = await response.text();
-    const online = /server-status-card server-online/.test(result);
-    const field = label => {
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = result.match(new RegExp(`<span class="info-label">${escaped}:<\\/span>\\s*<span class="info-value">([\\s\\S]*?)<\\/span>`));
-      return match?.[1]?.replace(/<[^>]*>/g, '').trim() || '';
-    };
-    const [playersOnline, playersMax] = field('Игроки').split('/').map(value => Number(value.trim()));
-    if (!field('Версия') || !Number.isFinite(playersOnline) || !Number.isFinite(playersMax)) {
-      if (!/server-status-card server-offline/.test(result)) throw new Error('Формат ответа Minecraft-Hosting изменился.');
-    }
-    const value = {
-      online,
-      players: { online: Number.isFinite(playersOnline) ? playersOnline : 0, max: Number.isFinite(playersMax) ? playersMax : 0 },
-      version: field('Версия') || GAME_VERSION,
-      ping: null, sample: [], motd: '', source: 'minecraft-hosting.net'
-    };
-    hostedStatusCache = value;
-    hostedStatusUpdatedAt = Date.now();
-    return value;
-  })();
-  try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
-}
-async function publicServerStats() {
-  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(SERVER), { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+async function publicServerStats(host, port) {
+  const address = encodeURIComponent(host) + ':' + port;
+  const response = await fetch('https://api.mcsrvstat.us/3/' + address, { cache: 'no-store', signal: AbortSignal.timeout(4500) });
   if (!response.ok) throw new Error('Сервис статистики вернул HTTP ' + response.status + '.');
   const data = await response.json();
   if (typeof data.online !== 'boolean') throw new Error('Сервис статистики вернул неполные данные.');
-  const onlineCount = Number(data.players?.online);
-  const maxCount = Number(data.players?.max);
+  const onlineCount = Number(data.players?.online), maxCount = Number(data.players?.max);
   const sample = Array.isArray(data.players?.list) ? data.players.list.map(player => typeof player === 'string' ? { name: player } : player).filter(player => player?.name) : [];
-  return {
-    online: data.online,
-    players: { online: Number.isFinite(onlineCount) ? onlineCount : 0, max: Number.isFinite(maxCount) ? maxCount : 0, sample },
-    version: data.version || GAME_VERSION,
-    ping: Number.isFinite(data.debug?.ping) ? data.debug.ping : null,
-    sample, motd: (data.motd?.clean || data.motd?.raw || []).join?.(' ') || '',
-    source: 'mcsrvstat.us'
-  };
+  return { online: data.online, players: { online: Number.isFinite(onlineCount) ? onlineCount : 0, max: Number.isFinite(maxCount) ? maxCount : 0, sample }, version: data.version || GAME_VERSION, ping: Number.isFinite(data.debug?.ping) ? data.debug.ping : null, sample, motd: (data.motd?.clean || data.motd?.raw || []).join?.(' ') || '', host, source: 'mcsrvstat.us' };
 }
 async function serverStatus() {
-  const [publicStats, direct, hosted, ping] = await Promise.allSettled([publicServerStats(), directServerStatus(), hostedServerStatus(), measureServerPing()]);
-  if (publicStats.status === 'fulfilled') return { ...publicStats.value, ping: ping.status === 'fulfilled' ? ping.value : publicStats.value.ping };
-  if (direct.status === 'fulfilled') return { ...direct.value, ping: ping.status === 'fulfilled' ? ping.value : direct.value.ping };
-  if (hosted.status === 'fulfilled') return { ...hosted.value, ping: ping.status === 'fulfilled' ? ping.value : null };
-  throw new Error(publicStats.reason?.message || direct.reason?.message || hosted.reason?.message || 'Сервер недоступен.');
+  const checks = await Promise.all(STATUS_TARGETS.map(async target => {
+    const [direct, publicStats] = await Promise.allSettled([directServerStatus(target.host, target.port), publicServerStats(target.host, target.port)]);
+    const directResult = direct.status === 'fulfilled' && direct.value.online ? direct.value : null;
+    const publicResult = publicStats.status === 'fulfilled' && publicStats.value.online ? publicStats.value : null;
+    const value = directResult || publicResult;
+    if (value) return value;
+    const offline = direct.status === 'fulfilled' ? direct.value : publicStats.status === 'fulfilled' ? publicStats.value : null;
+    return { ...(offline || {}), online: false, players: offline?.players || { online: 0, max: 0, sample: [] }, version: offline?.version || GAME_VERSION, ping: null, sample: [], error: [direct.reason?.message, publicStats.reason?.message].filter(Boolean).join(' · ') || 'Узел не отвечает.' };
+  }));
+  const online = checks.find(result => result.online);
+  if (online) return online;
+  const offline = checks.find(result => result.error) || checks[0];
+  return { ...offline, online: false, error: STATUS_TARGETS.map((target, i) => target.host + ': ' + (checks[i].error || 'не в сети')).join(' · ') };
 }
 async function ensureJava() {
   if (process.platform !== 'win32') return 'java';
