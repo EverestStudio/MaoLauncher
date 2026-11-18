@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('launcher', Object.freeze({
   serverStatus: () => ipcRenderer.invoke('server:status'),
   getTwitchStreams: () => ipcRenderer.invoke('twitch:status'),
   windowAction: (action) => ipcRenderer.invoke('window:action', action),
+  setSidebarExpanded: (expanded) => ipcRenderer.invoke('window:sidebar-expanded', Boolean(expanded)),
   onProgress: (callback) => ipcRenderer.on('install:progress', (_event, data) => callback(data)),
   onLauncherUpdateProgress: (callback) => ipcRenderer.on('launcher-update:progress', (_event, data) => callback(data)),
   onGameStarted: (callback) => ipcRenderer.on('game:started', (_event, data) => callback(data)),
