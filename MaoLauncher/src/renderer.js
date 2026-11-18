@@ -281,18 +281,21 @@ async function readTwitchStreamer(streamer, status) {
   if (status?.unavailable) throw new Error(status.error || 'Twitch status unavailable');
   return { ...streamer, live: Boolean(status?.live), uptime: status?.uptime || '', title: status?.title || '', category: status?.category || '', viewers: Number.isFinite(status?.viewers) ? status.viewers : null };
 }
-function selectTwitchStream(stream) {
-  const frame = byId('twitchPlayerFrame'), placeholder = byId('twitchPlayerPlaceholder');
-  if (!frame || !stream?.live) return;
-  const parent = location.hostname || '127.0.0.1';
-  frame.src = 'https://player.twitch.tv/?channel=' + encodeURIComponent(stream.name) + '&parent=' + encodeURIComponent(parent) + '&autoplay=false&muted=false';
-  frame.hidden = false; placeholder.hidden = true;
+function updateTwitchStreamInfo(stream) {
   byId('twitchPlayerName').textContent = stream.name;
   byId('twitchPlayerTitle').textContent = stream.title || 'Прямая трансляция';
   byId('twitchPlayerStatus').textContent = 'В эфире';
   byId('twitchPlayerUptime').textContent = stream.uptime || '—';
   byId('twitchPlayerViewers').textContent = stream.viewers === null ? '—' : stream.viewers.toLocaleString('ru-RU');
   byId('twitchPlayerCategory').textContent = stream.category || '—';
+}
+function selectTwitchStream(stream) {
+  const frame = byId('twitchPlayerFrame'), placeholder = byId('twitchPlayerPlaceholder');
+  if (!frame || !stream?.live) return;
+  const parent = location.hostname || '127.0.0.1';
+  frame.src = 'https://player.twitch.tv/?channel=' + encodeURIComponent(stream.name) + '&parent=' + encodeURIComponent(parent) + '&autoplay=false&muted=false';
+  frame.hidden = false; placeholder.hidden = true;
+  updateTwitchStreamInfo(stream);
 }
 function setStreamerAvatarFallback(image) {
   image.hidden = true;
@@ -348,7 +351,21 @@ async function refreshTwitchStreams() {
       if (label) label.textContent = result.unavailable ? 'Статус недоступен' : result.live ? 'В эфире · ' + result.uptime : 'Не в сети';
     }
     const active = results.filter(result => result.live);
-    if (active.length && !active.some(item => item.name === byId('twitchPlayerName')?.textContent)) selectTwitchStream(active[0]);
+    const selectedName = byId('twitchPlayerName')?.textContent;
+    const selected = active.find(item => item.name === selectedName);
+    if (selected) updateTwitchStreamInfo(selected);
+    else if (active.length) selectTwitchStream(active[0]);
+    else if (selectedName && selectedName !== 'Трансляция не выбрана') {
+      byId('twitchPlayerFrame').removeAttribute('src');
+      byId('twitchPlayerFrame').hidden = true;
+      byId('twitchPlayerPlaceholder').hidden = false;
+      byId('twitchPlayerName').textContent = 'Трансляция не выбрана';
+      byId('twitchPlayerTitle').textContent = 'Выбранный канал завершил эфир';
+      byId('twitchPlayerStatus').textContent = 'Не в эфире';
+      byId('twitchPlayerUptime').textContent = '—';
+      byId('twitchPlayerViewers').textContent = '—';
+      byId('twitchPlayerCategory').textContent = '—';
+    }
     liveList.innerHTML = active.length ? active.map(result => '<button class="liveStreamCard" type="button" data-live-channel="' + safe(result.name) + '"><span class="liveBadge">● LIVE</span><strong>' + safe(result.name) + '</strong><small>' + safe(result.title || 'Прямая трансляция') + '</small><span class="liveStreamMeta"><span>◷ ' + safe(result.uptime || '—') + '</span><span>◉ ' + (result.viewers === null ? '—' : result.viewers.toLocaleString('ru-RU')) + ' зрителей</span><span>▣ ' + safe(result.category || 'Категория не указана') + '</span></span></button>').join('') : '<div class="streamEmpty">Сейчас никто из добавленных стримеров не в эфире.</div>';
     liveList.querySelectorAll('[data-live-channel]').forEach(card => card.addEventListener('click', () => { const stream = active.find(item => item.name === card.dataset.liveChannel); if (stream) selectTwitchStream(stream); }));
   })().finally(() => { twitchRefreshPromise = null; });
