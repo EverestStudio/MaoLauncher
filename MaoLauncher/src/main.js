@@ -414,7 +414,7 @@ async function startLocalWebServer() {
   localServer = http.createServer((request, response) => {
     let pathname;
     try { pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname); } catch { response.writeHead(400).end(); return; }
-    const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\\/+/, '');
+    const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
     const file = path.resolve(__dirname, relative);
     if (file !== __dirname && !file.startsWith(__dirname + path.sep)) { response.writeHead(403).end(); return; }
     fs.stat(file, (error, stat) => {
@@ -572,7 +572,7 @@ async function fetchTwitchStreams() {
         ]);
         if (titleResult.status === 'fulfilled') title = titleResult.value;
         if (categoryResult.status === 'fulfilled') category = categoryResult.value;
-        if (viewersResult.status === 'fulfilled' && /^\\d+$/.test(viewersResult.value)) viewers = Number(viewersResult.value);
+        if (viewersResult.status === 'fulfilled' && /^\d+$/.test(viewersResult.value)) viewers = Number(viewersResult.value);
       }
       return { name, live, uptime: live ? uptime : '', title, category, viewers, unavailable: false };
     } catch (error) {
