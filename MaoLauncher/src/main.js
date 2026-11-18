@@ -71,7 +71,7 @@ async function fetchServerNews() {
       const clean = payload.news.filter(item => item && typeof item.title === 'string' && typeof item.text === 'string')
         .slice(0, 10).map(item => ({
           title: item.title.slice(0, 160),
-          text: item.text.slice(0, 1200),
+          text: item.text.slice(0, 12000),
           date: typeof item.date === 'string' ? item.date.slice(0, 32) : '',
           tag: 'ВК · СООБЩЕСТВО',
           image: typeof item.image === 'string' && item.image.startsWith('https://') ? item.image : '',
