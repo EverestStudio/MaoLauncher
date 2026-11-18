@@ -244,6 +244,30 @@ body.sidebar-expanded .brandText{max-width:180px;opacity:1;transform:translateX(
 .nav button.active{
   transition:background-color .24s ease,color .24s ease,box-shadow .24s ease;
 }
+
+/* VK news: preserve post structure and make the latest post the home feature. */
+#homeNews{display:grid;gap:12px;background:transparent;border:0;overflow:visible}
+.newsCard{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);text-decoration:none;opacity:0;animation:newsEnter .38s ease forwards;transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
+.newsCard:nth-child(2){animation-delay:.06s}.newsCard:nth-child(3){animation-delay:.12s}
+.newsCard:hover{border-color:#795394;transform:translateY(-2px);box-shadow:0 12px 28px #0003}
+.newsCover{width:100%;max-height:250px;overflow:hidden;background:var(--surface2)}
+.newsCover img{display:block;width:100%;max-height:250px;object-fit:cover}
+.newsText{padding:15px 17px;min-width:0}
+.newsText h3{font-size:15px;line-height:1.35;margin:7px 0 10px}
+.newsBody{font-size:12px;line-height:1.75;color:var(--muted);overflow-wrap:anywhere;white-space:normal}
+.newsFeatured .newsText{padding:19px 21px}
+.newsFeatured .newsText h3{font-size:19px}
+.newsFeatured .newsBody{font-size:13px;line-height:1.8;color:var(--text)}
+.newsFeatured .newsCover,.newsFeatured .newsCover img{max-height:300px}
+.newsReadMore{display:inline-block;margin-top:12px;color:#d1a0fa;font-size:11px;font-weight:700}
+.newsInlineLink{color:#d1a0fa;text-decoration:underline;text-underline-offset:2px}
+.vkEmoji{display:inline-block;width:1.35em;height:1.35em;object-fit:contain;vertical-align:-.3em;margin:0 .08em}
+#allNews{display:grid;gap:12px;background:transparent;border:0;overflow:visible}
+#allNews .newsCard{grid-template-columns:minmax(0,1fr)}
+#allNews .newsText{padding:18px 20px}
+#allNews .newsBody{font-size:13px;line-height:1.8;color:var(--text)}
+@keyframes newsEnter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:680px){.newsFeatured .newsText{padding:15px}.newsFeatured .newsText h3{font-size:16px}#allNews .newsText{padding:14px}}
 </style></head><body><div class="app"><aside><button class="sidebarToggle" id="sidebarToggle" type="button" aria-label="Развернуть меню" aria-expanded="false" title="Развернуть меню">☰</button><div class="brand"><img class="brandLogo" src="assets/mao-icon.png" alt=""><span class="brandText">MaoLauncher<small>MINECRAFT LAUNCHER</small></span></div><div class="navlabel">МЕНЮ</div><nav class="nav"><button class="active" data-view="home"><span>⌂</span><span class="navText">Главная</span></button><button data-view="newsview"><span>▤</span><span class="navText">Новости</span></button><button data-view="mapview"><span>▧</span><span class="navText">Карта сервера</span></button><button data-view="streamsview"><span>▶</span><span class="navText">Стримы</span></button><button data-view="supportview"><span>✉</span><span class="navText">Поддержка</span></button><button data-view="settingsview"><span>⚙</span><span class="navText">Настройки</span></button></nav><div class="sidefoot"><small id="launcherVersionLabel">MaoLauncher v—</small></div><div class="profileDockMount"><button data-view="profileview" class="profileNav"><span>♙</span><span class="navText">Профиль</span></button></div></aside><main class="main"><header class="topbar"><div><strong id="crumb">Главная</strong><span> / MaoLauncher</span></div><div class="topActions"><span class="pill" id="topStatus" hidden>ПРОВЕРКА</span><button class="windowBtn" id="minimizeWindow" title="Свернуть">−</button><button class="windowBtn close windowControls" id="closeWindow" title="Закрыть">×</button></div></header>
 <section class="view active" id="home"><div class="hero"><div class="heroContent"><div class="eyebrow">MINECRAFT · FABRIC 26.2</div><h1>MaoLauncher</h1><p>Твой путь в мир Minecraft начинается здесь!</p><div class="row"><button class="primary" id="playButton">Проверка файлов…</button><button class="quiet" id="copyAddress">Копировать IP</button></div><div class="progress" id="progressWrap" hidden><i id="progressBar"></i></div><div id="progressText" class="muted" style="font-size:10px;margin-top:5px"></div></div></div><div class="serverStrip"><div class="serverSignal"><i class="onlineDot"></i><div><strong id="serverStatus">Проверяем сервер…</strong><small id="sideStatus">mc.maopickme.ru</small></div></div><div class="stripStat"><span id="players">— / —</span><small>Игроки онлайн</small></div><div class="stripStat"><span id="gameVersion">Fabric 26.2</span><small>Версия клиента</small></div><button class="secondary" data-go="serverview">Подробнее</button></div><div class="dashboard"><div><div class="sectionhead"><div><h2>Новости сервера</h2><p>Последние объявления сообщества</p></div><button class="textbutton" data-go="newsview">Все новости →</button></div><div class="panel" id="homeNews"></div><div class="sectionhead"><div><h2>Сборка сервера</h2><p>Автоматическая установка Fabric-модов</p></div></div><div class="panel buildbox"><div><span class="badge">FABRIC · MC 26.2</span><h3>Сборка MaoLauncher</h3><p id="buildHint">Fabric API, Mod Menu, EmoteCraft, Simple Voice Chat, Sodium, Iris, Litematica и JourneyMap</p></div><span class="muted" style="font-size:11px">11 модов + зависимости</span></div></div><section class="panel sidepanel"><h3>Быстрый доступ</h3><div class="quickLinks"><a class="quickLink" href="#" data-quick="top"><span class="quickIcon">♜</span>Топ игроков</a><a class="quickLink" href="#" data-quick="shop"><span class="quickIcon">◈</span>Магазин</a><a class="quickLink" href="#" data-quick="discord"><span class="quickIcon">◉</span>Discord сервер</a><a class="quickLink" href="#" data-quick="website"><span class="quickIcon">↗</span>Наш сайт</a></div></section></div></section>
 <section class="view" id="newsview"><div class="sectionhead"><div><h2>Новости сервера</h2><p>Объявления сообщества</p></div></div><div class="panel" id="allNews"></div></section>
