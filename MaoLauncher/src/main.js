@@ -25,7 +25,9 @@ const PROJECTS = [
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
 const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', installManifest: '' };
-let mainWindow;\nlet localServer;\nlet localServerPort;
+let mainWindow;
+let localServer;
+let localServerPort;
 let tray;
 let quitting = false;
 let settingsPath;
