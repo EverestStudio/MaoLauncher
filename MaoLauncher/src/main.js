@@ -261,7 +261,7 @@ async function hostedServerStatus() {
   try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
 }
 async function publicServerStats() {
-  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(STATUS_ADDRESS), { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(SERVER), { cache: 'no-store', signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error('Сервис статистики вернул HTTP ' + response.status + '.');
   const data = await response.json();
   if (typeof data.online !== 'boolean') throw new Error('Сервис статистики вернул неполные данные.');
