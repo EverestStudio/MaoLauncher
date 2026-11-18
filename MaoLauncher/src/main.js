@@ -563,7 +563,7 @@ async function fetchTwitchStreams() {
     try {
       const uptime = await fetchTwitchText('uptime', name);
       if (!uptime) throw new Error('Empty Twitch API response');
-      if (/\\[error|error occurred|unable to|not found|invalid|channel name required/i.test(uptime)) throw new Error(uptime);
+      if (/\[error|error occurred|unable to|not found|invalid|channel name required/i.test(uptime)) throw new Error(uptime);
       const live = !/offline|not currently live|no live stream|is not live/i.test(uptime);
       let title = '', category = '', viewers = null;
       if (live) {
