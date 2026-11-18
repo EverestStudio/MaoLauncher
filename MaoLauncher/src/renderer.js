@@ -195,9 +195,9 @@ function renderNews(news, featured = false) {
     const isFeatured = featured && index === 0;
     const content = (item.image ? "<div class='newsCover'><img alt='' src='" + safe(item.image) + "'></div>" : '') +
       "<div class='newsText'><span class='tag'>" + safe(item.tag || 'НОВОСТЬ') + ' · ' + safe(item.date || '') + "</span><h3>" + safe(item.title) + "</h3><div class='newsBody'>" + formatNewsText(item.text) + "</div>" +
-      (item.url && /^https:\/\/(vk\\.ru|vk\\.com)\\//i.test(item.url) ? "<span class='newsReadMore'>Открыть публикацию ↗</span>" : '') + "</div>";
+      (item.url && /^https:\/\/(vk\.ru|vk\.com)\//i.test(item.url) ? "<span class='newsReadMore'>Открыть публикацию ↗</span>" : '') + "</div>";
     const classes = "newsCard" + (isFeatured ? " newsFeatured" : "");
-    return item.url && /^https:\/\/(vk\\.ru|vk\\.com)\\//i.test(item.url)
+    return item.url && /^https:\/\/(vk\.ru|vk\.com)\//i.test(item.url)
       ? "<a class='" + classes + " newsLink' href='" + safe(item.url) + "' target='_blank' rel='noopener noreferrer'>" + content + "</a>"
       : "<article class='" + classes + "'>" + content + "</article>";
   }).join('');
@@ -418,9 +418,17 @@ byId('memorySetting').addEventListener('input', event => updateMemoryPreview(eve
 byId('memorySetting').addEventListener('change', event => saveMemory(event.target.value).catch(error => notify(error.message, true)));
 byId('memoryManual').addEventListener('change', event => { const value = Number(event.target.value); if (!Number.isFinite(value) || value < 2048 || value > 16384) { notify('Укажи память от 2048 до 16384 МБ.', true); render(); return; } saveMemory(value).catch(error => notify(error.message, true)); });
 for (const [id, key] of [['themeSetting', 'theme'], ['languageSetting', 'language'], ['minimizeBehavior', 'minimizeBehavior'], ['snowfallSetting', 'snowfall']]) byId(id).addEventListener('change', async e => {
-  config = await window.launcher.saveSettings({ ...config, [key]: key === 'snowfall' ? e.target.checked : e.target.value });
-  render();
-  if (key === 'language') applyLanguage();
+  const previous = config;
+  try {
+    config = await window.launcher.saveSettings({ ...config, [key]: key === 'snowfall' ? e.target.checked : e.target.value });
+    render();
+    if (key === 'language') applyLanguage();
+  } catch (error) {
+    config = previous;
+    render();
+    if (key === 'language') applyLanguage();
+    notify('Не удалось сохранить настройку: ' + error.message, true);
+  }
 });
 byId('openFolder').addEventListener('click', async () => { const error = await window.launcher.openGameFolder(); if (error) notify(error, true); });
 async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); const versionLabel = byId('launcherVersionLabel'); if (versionLabel && r.launcherVersion) versionLabel.textContent = 'MaoLauncher v' + r.launcherVersion; gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); if (hint) hint.textContent = launcherUpdateAvailable ? 'Доступна новая версия MaoLauncher ' + r.latestLauncherVersion + '. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'MaoLauncher и установленные моды обновлены до последних версий.'; if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
