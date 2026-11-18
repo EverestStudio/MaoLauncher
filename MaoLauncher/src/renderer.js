@@ -7,7 +7,7 @@ function configureNavigation() {
   const serverButton = document.querySelector('.nav button[data-view="serverview"]');
   const aboutButton = document.querySelector('.nav button[data-view="aboutview"]');
   const sidefoot = document.querySelector('.sidefoot');
-  const settings = document.querySelector('#settingsview .settings');
+  const settings = document.querySelector('#settingsview .launcherSettings');
   const aboutView = byId('aboutview');
   const home = byId('home');
   document.querySelectorAll('#home .address span, #serverview .address span').forEach(element => { element.textContent = 'mc.maopickme.ru'; });
@@ -236,7 +236,7 @@ const englishText = {
   'Добавить профиль':'Add profile','Выберите способ входа в MaoLauncher':'Choose how to sign in to MaoLauncher',
   'Оффлайн':'Offline','Создать локальный профиль по нику':'Create a local profile by username','Вход через учётную запись Ely.by':'Sign in with Ely.by',
   'Ник игрока':'Player name','Создать профиль':'Create profile','Назад к выбору':'Back to choices',
-  'Оперативная память':'Memory','Максимум для Minecraft':'Maximum for Minecraft','Тема':'Theme','Светлая, тёмная или системная':'Light, dark or system',
+  'Оперативная память':'Memory','Максимум для Minecraft':'Maximum for Minecraft','Настройка игры':'Game settings','Параметры запуска Minecraft':'Minecraft launch options','Выделенная память для Minecraft':'Memory allocated to Minecraft','Выбрано':'Selected','Папка игры':'Game folder','Интерфейс':'Interface','Внешний вид и поведение окна':'Appearance and window behavior','Лаунчер':'Launcher','Обновление и информация о приложении':'Updates and app information','Проверка версий лаунчера и модов':'Checking launcher and mod versions','Независимый проект':'Independent project','МБ':'MB','Тема':'Theme','Светлая, тёмная или системная':'Light, dark or system',
   'Язык':'Language','Язык интерфейса':'Interface language','Файлы игры':'Game files','Папка Minecraft и модов':'Minecraft and mods folder',
   'Открыть папку':'Open folder','Проверить обновления':'Check for updates','Сворачивание лаунчера':'Minimize behavior','Снежинки на фоне':'Snowfall background','Включить или отключить анимацию снега':'Enable or disable the snowfall animation','Включено':'Enabled',
   'Куда скрывать окно при нажатии «Свернуть»':'Where to send the window when minimized',
@@ -259,7 +259,7 @@ function applyLanguage() {
   byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
   byId('closeWindow').title = english ? 'Close' : 'Закрыть';
 }
-function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); const memoryPosition = Math.round((Math.max(2048, Math.min(16384, Number(config.memory) || 4096)) - 2048) / (16384 - 2048) * 200); byId('memorySetting').value = String(memoryPosition); byId('memorySlider').style.setProperty('--memory-progress', (memoryPosition / 2) + '%'); byId('memoryValue').value = (config.memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + (config.language === 'ru' ? ' ГБ' : ' GB'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
+function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
 async function refreshState() { try { gameInstalled = Boolean((await window.launcher.gameState()).installed); } catch { gameInstalled = false; } renderPlayButton(); }
 function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
 async function checkServer() {
@@ -275,6 +275,8 @@ async function checkServer() {
   } catch (e) { setUnavailable(e.message); }
 }
 configureNavigation();
+const sidebarToggle = byId('sidebarToggle');
+sidebarToggle?.addEventListener('click', async () => { const expanded = !document.body.classList.contains('sidebar-expanded'); document.body.classList.toggle('sidebar-expanded', expanded); sidebarToggle.setAttribute('aria-expanded', String(expanded)); sidebarToggle.setAttribute('aria-label', expanded ? 'Свернуть меню' : 'Развернуть меню'); sidebarToggle.title = expanded ? 'Свернуть меню' : 'Развернуть меню'; sidebarToggle.textContent = expanded ? '‹' : '☰'; try { await window.launcher.setSidebarExpanded(expanded); } catch (error) { notify(error.message, true); } });
 const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }, { name: 'tomskiybtw', url: 'https://www.twitch.tv/tomskiybtw' }];
 let twitchRefreshPromise = null;
 async function readTwitchStreamer(streamer, status) {
@@ -385,9 +387,13 @@ byId('profileName').addEventListener('input', event => { const name = event.targ
 byId('reloadMap').addEventListener('click', () => { const frame = byId('serverMap'); frame.src = 'http://135.181.126.154:25602/?refresh=' + Date.now(); });
 async function copyAddress() { await navigator.clipboard.writeText('mc.maopickme.ru'); notify('IP mc.maopickme.ru скопирован.'); }
 ['copyAddress', 'copySide', 'copyDetail'].forEach(id => byId(id)?.addEventListener('click', copyAddress)); byId('refreshServer').addEventListener('click', checkServer);
-byId('memorySetting').addEventListener('input', event => { const position = Number(event.target.value); const memory = Math.round((2048 + position / 200 * (16384 - 2048)) / 64) * 64; byId('memorySlider').style.setProperty('--memory-progress', (position / 2) + '%'); byId('memoryValue').value = (memory / 1024).toLocaleString(config.language === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 }) + ' ГБ'; });
-for (const [id, key] of [['memorySetting', 'memory'], ['themeSetting', 'theme'], ['languageSetting', 'language'], ['minimizeBehavior', 'minimizeBehavior'], ['snowfallSetting', 'snowfall']]) byId(id).addEventListener('change', async e => {
-  config = await window.launcher.saveSettings({ ...config, [key]: key === 'memory' ? Math.round((2048 + Number(e.target.value) / 200 * (16384 - 2048)) / 64) * 64 : key === 'snowfall' ? e.target.checked : e.target.value });
+function updateMemoryPreview(value) { const memory = Math.max(2048, Math.min(16384, Math.round(Number(value)))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); return memory; }
+async function saveMemory(value) { const memory = updateMemoryPreview(value); config = await window.launcher.saveSettings({ ...config, memory }); render(); }
+byId('memorySetting').addEventListener('input', event => updateMemoryPreview(event.target.value));
+byId('memorySetting').addEventListener('change', event => saveMemory(event.target.value).catch(error => notify(error.message, true)));
+byId('memoryManual').addEventListener('change', event => { const value = Number(event.target.value); if (!Number.isFinite(value) || value < 2048 || value > 16384) { notify('Укажи память от 2048 до 16384 МБ.', true); render(); return; } saveMemory(value).catch(error => notify(error.message, true)); });
+for (const [id, key] of [['themeSetting', 'theme'], ['languageSetting', 'language'], ['minimizeBehavior', 'minimizeBehavior'], ['snowfallSetting', 'snowfall']]) byId(id).addEventListener('change', async e => {
+  config = await window.launcher.saveSettings({ ...config, [key]: key === 'snowfall' ? e.target.checked : e.target.value });
   render();
   if (key === 'language') applyLanguage();
 });
