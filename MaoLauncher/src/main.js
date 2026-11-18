@@ -170,7 +170,7 @@ function readVarInt(buffer, offset = 0) {
 }
 async function directServerStatus(host) {
   const port = STATUS_PORT;
-  const addressBytes = Buffer.from(host, 'utf8');
+  const addressBytes = Buffer.from('m30.joinserver.xyz', 'utf8');
   const handshakeData = Buffer.concat([varInt(767), varInt(addressBytes.length), addressBytes, Buffer.from([port >> 8, port & 255]), varInt(1)]);
   const handshake = Buffer.concat([varInt(handshakeData.length + 1), Buffer.from([0]), handshakeData]);
   const packet = Buffer.concat([handshake, Buffer.from([1, 0])]);
