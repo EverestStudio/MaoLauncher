@@ -168,13 +168,38 @@ function applySnowfall() {
   if (config.snowfall && !snowfallFrame) snowfallFrame = requestAnimationFrame(drawSnowfall);
   if (!config.snowfall && snowfallFrame) { cancelAnimationFrame(snowfallFrame); snowfallFrame = 0; snowfallContext?.clearRect(0, 0, window.innerWidth, window.innerHeight); }
 }
-function renderNews(news) {
-  if (!news.length) return "<article class='news'><div class='newsIcon'>✦</div><div class='newsText'><span class='tag'>НОВОСТИ</span><h3>Пока нет новостей</h3><p>Новости сообщества появятся здесь после загрузки.</p></div></article>";
-  return news.map(item => {
-    const content = "<div class='newsIcon'>" + (item.image ? "<img alt='' src='" + safe(item.image) + "'>" : safe(item.icon || '✦')) + "</div><div class='newsText'><span class='tag'>" + safe(item.tag || 'НОВОСТЬ') + ' · ' + safe(item.date || '') + "</span><h3>" + safe(item.title) + "</h3><p>" + safe(item.text) + "</p></div>";
-    return item.url && /^https:\/\/(vk\.ru|vk\.com)\//i.test(item.url)
-      ? "<a class='news newsLink' href='" + safe(item.url) + "' target='_blank' rel='noopener noreferrer'>" + content + "</a>"
-      : "<article class='news'>" + content + "</article>";
+function formatNewsText(value) {
+  const source = String(value ?? '').replace(/\\\\\\r?\\n/g, '\n').replace(/\\\\n/g, '\n');
+  const linkPattern = /\\[([^\\]]+)\\]\\((https:\\/\\/(?:vk\\.ru|vk\\.com)\\/[^\\s)]+)\\)/g;
+  let html = '', last = 0, match;
+  const escapeText = text => safe(text)
+    .replace(/&amp;#(x[0-9a-f]+|[0-9]+);/gi, '&#$1;')
+    .replace(/\\r?\\n/g, '<br>');
+  while ((match = linkPattern.exec(source))) {
+    html += escapeText(source.slice(last, match.index));
+    const label = escapeText(match[1]);
+    const url = match[2];
+    if (/^https:\\/\\/vk\\.ru\\/emoji\\/e\\/[a-f0-9]+_2x\\.png$/i.test(url)) {
+      html += "<img class='vkEmoji' alt='" + safe(match[1]) + "' src='" + safe(url) + "'>";
+    } else {
+      html += "<a class='newsInlineLink' href='" + safe(url) + "' target='_blank' rel='noopener noreferrer'>" + label + "</a>";
+    }
+    last = linkPattern.lastIndex;
+  }
+  html += escapeText(source.slice(last));
+  return html;
+}
+function renderNews(news, featured = false) {
+  if (!news.length) return "<article class='news newsEmpty'><div class='newsIcon'>✦</div><div class='newsText'><span class='tag'>НОВОСТИ</span><h3>Пока нет новостей</h3><p>Новости сообщества появятся здесь после загрузки.</p></div></article>";
+  return news.map((item, index) => {
+    const isFeatured = featured && index === 0;
+    const content = (item.image ? "<div class='newsCover'><img alt='' src='" + safe(item.image) + "'></div>" : '') +
+      "<div class='newsText'><span class='tag'>" + safe(item.tag || 'НОВОСТЬ') + ' · ' + safe(item.date || '') + "</span><h3>" + safe(item.title) + "</h3><div class='newsBody'>" + formatNewsText(item.text) + "</div>" +
+      (item.url && /^https:\/\/(vk\\.ru|vk\\.com)\\//i.test(item.url) ? "<span class='newsReadMore'>Открыть публикацию ↗</span>" : '') + "</div>";
+    const classes = "newsCard" + (isFeatured ? " newsFeatured" : "");
+    return item.url && /^https:\/\/(vk\\.ru|vk\\.com)\\//i.test(item.url)
+      ? "<a class='" + classes + " newsLink' href='" + safe(item.url) + "' target='_blank' rel='noopener noreferrer'>" + content + "</a>"
+      : "<article class='" + classes + "'>" + content + "</article>";
   }).join('');
 }
 async function loadNews() {
@@ -259,7 +284,7 @@ function applyLanguage() {
   byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
   byId('closeWindow').title = english ? 'Close' : 'Закрыть';
 }
-function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3)); byId('allNews').innerHTML = renderNews(config.news || []); const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
+function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3), true); byId('allNews').innerHTML = renderNews(config.news || []); const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
 async function refreshState() { try { gameInstalled = Boolean((await window.launcher.gameState()).installed); } catch { gameInstalled = false; } renderPlayButton(); }
 function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
 async function checkServer() {
