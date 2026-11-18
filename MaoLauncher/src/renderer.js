@@ -6,7 +6,6 @@ function configureNavigation() {
   const mapButton = document.querySelector('.nav button[data-view="mapview"]');
   const serverButton = document.querySelector('.nav button[data-view="serverview"]');
   const aboutButton = document.querySelector('.nav button[data-view="aboutview"]');
-  const sidefoot = document.querySelector('.sidefoot');
   const settings = document.querySelector('#settingsview .launcherSettings');
   const aboutView = byId('aboutview');
   const home = byId('home');
@@ -482,7 +481,7 @@ for (const [id, key] of [['themeSetting', 'theme'], ['languageSetting', 'languag
   }
 });
 byId('openFolder').addEventListener('click', async () => { const error = await window.launcher.openGameFolder(); if (error) notify(error, true); });
-async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); if (hint) hint.textContent = launcherUpdateAvailable ? 'Доступна новая версия MaoLauncher ' + r.latestLauncherVersion + '. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'MaoLauncher v1.3.3. Установленные моды обновлены до последних версий.'; if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
+async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); const latestVersion = r.latestLauncherVersion ? 'MaoLauncher v' + r.latestLauncherVersion + '. ' : ''; if (hint) hint.textContent = latestVersion + (launcherUpdateAvailable ? 'Доступна новая версия. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'Установленные моды обновлены до последних версий.'); if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
 byId('checkUpdates')?.addEventListener('click', () => checkUpdates());
 byId('minimizeWindow').addEventListener('click', () => window.launcher.windowAction('minimize')); byId('closeWindow').addEventListener('click', () => window.launcher.windowAction('close'));
 window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = false; byId('progressBar').style.width = Math.max(2, d.current || 2) + '%'; byId('progressText').textContent = d.label || 'Обновление MaoLauncher…'; });
