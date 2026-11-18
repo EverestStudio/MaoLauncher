@@ -11,9 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\MaoLauncher\src\assets\mao-banner.png"
-                      Link="mao-banner.png"
-                      LogicalName="MaoLauncher.Setup.mao-banner.png" />
+    <EmbeddedResource Include="..\MaoLauncher\src\assets\background_main.jpg"
+                      Link="background_main.jpg"
+                      LogicalName="MaoLauncher.Setup.background_main.jpg" />
     <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.ico"
                       Link="mao-icon.ico"
                       LogicalName="MaoLauncher.Setup.mao-icon.ico" />
