@@ -279,7 +279,20 @@ const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska
 let twitchRefreshPromise = null;
 async function readTwitchStreamer(streamer, status) {
   if (status?.unavailable) throw new Error(status.error || 'Twitch status unavailable');
-  return { ...streamer, live: Boolean(status?.live), uptime: status?.uptime || '', title: status?.title || '' };
+  return { ...streamer, live: Boolean(status?.live), uptime: status?.uptime || '', title: status?.title || '', category: status?.category || '', viewers: Number.isFinite(status?.viewers) ? status.viewers : null };
+}
+function selectTwitchStream(stream) {
+  const frame = byId('twitchPlayerFrame'), placeholder = byId('twitchPlayerPlaceholder');
+  if (!frame || !stream?.live) return;
+  const parent = location.hostname || '127.0.0.1';
+  frame.src = 'https://player.twitch.tv/?channel=' + encodeURIComponent(stream.name) + '&parent=' + encodeURIComponent(parent) + '&autoplay=false&muted=false';
+  frame.hidden = false; placeholder.hidden = true;
+  byId('twitchPlayerName').textContent = stream.name;
+  byId('twitchPlayerTitle').textContent = stream.title || 'Прямая трансляция';
+  byId('twitchPlayerStatus').textContent = 'В эфире';
+  byId('twitchPlayerUptime').textContent = stream.uptime || '—';
+  byId('twitchPlayerViewers').textContent = stream.viewers === null ? '—' : stream.viewers.toLocaleString('ru-RU');
+  byId('twitchPlayerCategory').textContent = stream.category || '—';
 }
 function setStreamerAvatarFallback(image) {
   image.hidden = true;
@@ -334,8 +347,9 @@ async function refreshTwitchStreams() {
       const label = card.querySelector('.streamState span');
       if (label) label.textContent = result.unavailable ? 'Статус недоступен' : result.live ? 'В эфире · ' + result.uptime : 'Не в сети';
     }
-    const active = results.filter(result => result.live);
-    liveList.innerHTML = active.length ? active.map(result => '<a class="liveStreamCard" href="' + result.url + '" target="_blank" rel="noopener noreferrer"><span class="liveBadge">● LIVE</span><strong>' + safe(result.name) + '</strong><small>' + safe(result.title || 'Прямая трансляция · ' + result.uptime) + '</small></a>').join('') : '';
+    const active = results.filter(result => result.live);\n    if (active.length && !active.some(item => item.name === byId('twitchPlayerName')?.textContent)) selectTwitchStream(active[0]);
+    liveList.innerHTML = active.length ? active.map(result => '<button class="liveStreamCard" type="button" data-live-channel="' + safe(result.name) + '"><span class="liveBadge">● LIVE</span><strong>' + safe(result.name) + '</strong><small>' + safe(result.title || 'Прямая трансляция') + '</small><span class="liveStreamMeta"><span>◷ ' + safe(result.uptime || '—') + '</span><span>◉ ' + (result.viewers === null ? '—' : result.viewers.toLocaleString('ru-RU')) + ' зрителей</span><span>▣ ' + safe(result.category || 'Категория не указана') + '</span></span></button>').join('') : '<div class="streamEmpty">Сейчас никто из добавленных стримеров не в эфире.</div>';
+    liveList.querySelectorAll('[data-live-channel]').forEach(card => card.addEventListener('click', () => { const stream = active.find(item => item.name === card.dataset.liveChannel); if (stream) selectTwitchStream(stream); }));
   })().finally(() => { twitchRefreshPromise = null; });
   return twitchRefreshPromise;
 }
