@@ -12,9 +12,8 @@ const execFileAsync = promisify(execFile);
 
 const GAME_VERSION = '26.2';
 const SERVER = 'mc.maopickme.ru';
-const STATUS_HOST = '135.181.126.154';
 const STATUS_PORT = 25737;
-const STATUS_ADDRESS = `${STATUS_HOST}:${STATUS_PORT}`;
+const STATUS_SERVERS = ['m30.joinserver.xyz', '135.181.126.154'];
 const NEWS_FEED_URL = 'https://hm572194.webhm.cloud/api/news.php';
 const LAUNCHER_VERSION = app.getVersion();
 const PROJECTS = [
@@ -169,8 +168,8 @@ function readVarInt(buffer, offset = 0) {
   do { if (position >= buffer.length || position - offset > 5) throw new Error('Некорректный пакет статуса.'); byte = buffer[position++]; value |= (byte & 0x7f) << ((position - offset - 1) * 7); } while (byte & 0x80);
   return { value, next: position };
 }
-async function directServerStatus() {
-  const host = STATUS_HOST, port = STATUS_PORT;
+async function directServerStatus(host) {
+  const port = STATUS_PORT;
   const addressBytes = Buffer.from(host, 'utf8');
   const handshakeData = Buffer.concat([varInt(767), varInt(addressBytes.length), addressBytes, Buffer.from([port >> 8, port & 255]), varInt(1)]);
   const handshake = Buffer.concat([varInt(handshakeData.length + 1), Buffer.from([0]), handshakeData]);
@@ -206,7 +205,7 @@ async function directServerStatus() {
 async function measureServerPing() {
   return new Promise((resolve, reject) => {
     const started = performance.now();
-    const socket = net.createConnection({ host: STATUS_HOST, port: STATUS_PORT });
+    const socket = net.createConnection({ host, port: STATUS_PORT });
     const timer = setTimeout(() => socket.destroy(new Error('Тайм-аут проверки пинга.')), 4000);
     socket.once('connect', () => {
       clearTimeout(timer);
@@ -233,7 +232,7 @@ async function hostedServerStatus() {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookies, origin: 'https://minecraft-hosting.net', referer: url },
-      body: new URLSearchParams({ _token: token, server_type: 'java', server_address: STATUS_ADDRESS }),
+      body: new URLSearchParams({ _token: token, server_type: 'java', server_address: `${STATUS_SERVERS[0]}:${STATUS_PORT}` }),
       signal: AbortSignal.timeout(8000)
     });
     if (!response.ok) throw new Error(`Проверка сервера: HTTP ${response.status}.`);
@@ -260,8 +259,8 @@ async function hostedServerStatus() {
   })();
   try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
 }
-async function publicServerStats() {
-  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(SERVER), { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+async function publicServerStats(address) {
+  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(`${address}:${STATUS_PORT}`), { cache: 'no-store', signal: AbortSignal.timeout(7000) });
   if (!response.ok) throw new Error('Сервис статистики вернул HTTP ' + response.status + '.');
   const data = await response.json();
   if (typeof data.online !== 'boolean') throw new Error('Сервис статистики вернул неполные данные.');
@@ -278,11 +277,21 @@ async function publicServerStats() {
   };
 }
 async function serverStatus() {
-  const [publicStats, direct, hosted, ping] = await Promise.allSettled([publicServerStats(), directServerStatus(), hostedServerStatus(), measureServerPing()]);
-  if (publicStats.status === 'fulfilled') return { ...publicStats.value, ping: ping.status === 'fulfilled' ? ping.value : publicStats.value.ping };
-  if (direct.status === 'fulfilled') return { ...direct.value, ping: ping.status === 'fulfilled' ? ping.value : direct.value.ping };
-  if (hosted.status === 'fulfilled') return { ...hosted.value, ping: ping.status === 'fulfilled' ? ping.value : null };
-  throw new Error(publicStats.reason?.message || direct.reason?.message || hosted.reason?.message || 'Сервер недоступен.');
+  const errors = [];
+  for (const host of STATUS_SERVERS) {
+    try {
+      const result = await directServerStatus(host);
+      return { ...result, address: `${host}:${STATUS_PORT}` };
+    } catch (error) { errors.push(`${host}: ${error.message}`); }
+  }
+  for (const host of STATUS_SERVERS) {
+    try {
+      const result = await publicServerStats(host);
+      if (result.online) return { ...result, address: `${host}:${STATUS_PORT}` };
+      errors.push(`${host}: сервис сообщил, что сервер офлайн`);
+    } catch (error) { errors.push(`${host}: ${error.message}`); }
+  }
+  throw new Error('Не удалось получить статус ни с одного адреса. ' + errors.join(' · '));
 }
 async function ensureJava() {
   if (process.platform !== 'win32') return 'java';
