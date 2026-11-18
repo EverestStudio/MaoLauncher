@@ -25,7 +25,7 @@ const PROJECTS = [
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
 const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', installManifest: '' };
-let mainWindow;
+let mainWindow;\nlet localServer;\nlet localServerPort;
 let tray;
 let quitting = false;
 let settingsPath;
@@ -407,11 +407,32 @@ async function runMinecraft() {
   })();
   try { return await installPromise; } finally { installPromise = null; }
 }
+async function startLocalWebServer() {
+  if (localServerPort) return localServerPort;
+  const http = require('node:http');
+  const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
+  localServer = http.createServer((request, response) => {
+    let pathname;
+    try { pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname); } catch { response.writeHead(400).end(); return; }
+    const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\\/+/, '');
+    const file = path.resolve(__dirname, relative);
+    if (file !== __dirname && !file.startsWith(__dirname + path.sep)) { response.writeHead(403).end(); return; }
+    fs.stat(file, (error, stat) => {
+      if (error || !stat.isFile()) { response.writeHead(404).end('Not found'); return; }
+      response.writeHead(200, { 'Content-Type': mime[path.extname(file).toLowerCase()] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+      fs.createReadStream(file).pipe(response);
+    });
+  });
+  await new Promise((resolve, reject) => { localServer.once('error', reject); localServer.listen(0, '127.0.0.1', resolve); });
+  localServerPort = localServer.address().port;
+  return localServerPort;
+}
 async function createWindow() {
+  const port = await startLocalWebServer();
   mainWindow = new BrowserWindow({ width: 1280, height: 820, minWidth: 1280, maxWidth: 1280, minHeight: 820, maxHeight: 820, resizable: false, maximizable: false, title: 'MaoLauncher', icon: path.join(__dirname, 'assets', 'mao-icon.png'), backgroundColor: '#100e16', frame: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url.startsWith('https://')) shell.openExternal(url); return { action: 'deny' }; });
-  await mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  await mainWindow.loadURL('http://127.0.0.1:' + port + '/');
 }
 function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -533,10 +554,7 @@ async function installLauncherUpdate() {
 
 const TWITCH_CHANNELS = ['niriska', 'similar_cav', 'tomskiybtw'];
 async function fetchTwitchText(endpoint, channel) {
-  const response = await fetch(`https://decapi.me/twitch/${endpoint}/${encodeURIComponent(channel)}`, {
-    cache: 'no-store',
-    signal: AbortSignal.timeout(10000)
-  });
+  const response = await fetch(`https://decapi.me/twitch/${endpoint}/${encodeURIComponent(channel)}`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error(`Twitch API HTTP ${response.status}`);
   return (await response.text()).trim();
 }
@@ -545,16 +563,20 @@ async function fetchTwitchStreams() {
     try {
       const uptime = await fetchTwitchText('uptime', name);
       if (!uptime) throw new Error('Empty Twitch API response');
-      const unavailable = /\[error|error occurred|unable to|not found|invalid|channel name required/i.test(uptime);
-      if (unavailable) throw new Error(uptime);
+      if (/\\[error|error occurred|unable to|not found|invalid|channel name required/i.test(uptime)) throw new Error(uptime);
       const live = !/offline|not currently live|no live stream|is not live/i.test(uptime);
-      let title = '';
+      let title = '', category = '', viewers = null;
       if (live) {
-        try { title = await fetchTwitchText('title', name); } catch {}
+        const [titleResult, categoryResult, viewersResult] = await Promise.allSettled([
+          fetchTwitchText('title', name), fetchTwitchText('game', name), fetchTwitchText('viewercount', name)
+        ]);
+        if (titleResult.status === 'fulfilled') title = titleResult.value;
+        if (categoryResult.status === 'fulfilled') category = categoryResult.value;
+        if (viewersResult.status === 'fulfilled' && /^\\d+$/.test(viewersResult.value)) viewers = Number(viewersResult.value);
       }
-      return { name, live, uptime: live ? uptime : '', title, unavailable: false };
+      return { name, live, uptime: live ? uptime : '', title, category, viewers, unavailable: false };
     } catch (error) {
-      return { name, live: false, uptime: '', title: '', unavailable: true, error: String(error?.message || error) };
+      return { name, live: false, uptime: '', title: '', category: '', viewers: null, unavailable: true, error: String(error?.message || error) };
     }
   }));
 }
