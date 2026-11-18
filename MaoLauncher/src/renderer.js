@@ -169,17 +169,17 @@ function applySnowfall() {
   if (!config.snowfall && snowfallFrame) { cancelAnimationFrame(snowfallFrame); snowfallFrame = 0; snowfallContext?.clearRect(0, 0, window.innerWidth, window.innerHeight); }
 }
 function formatNewsText(value) {
-  const source = String(value ?? '').replace(/\\\\\\r?\\n/g, '\n').replace(/\\\\n/g, '\n');
-  const linkPattern = /\\[([^\\]]+)\\]\\((https:\\/\\/(?:vk\\.ru|vk\\.com)\\/[^\\s)]+)\\)/g;
+  const source = String(value ?? '').replace(/\\\r?\n/g, '\n').replace(/\\n/g, '\n');
+  const linkPattern = /\[([^\]]+)\]\((https:\/\/(?:vk\.ru|vk\.com)\/[^\s)]+)\)/g;
   let html = '', last = 0, match;
   const escapeText = text => safe(text)
     .replace(/&amp;#(x[0-9a-f]+|[0-9]+);/gi, '&#$1;')
-    .replace(/\\r?\\n/g, '<br>');
+    .replace(/\r?\n/g, '<br>');
   while ((match = linkPattern.exec(source))) {
     html += escapeText(source.slice(last, match.index));
     const label = escapeText(match[1]);
     const url = match[2];
-    if (/^https:\\/\\/vk\\.ru\\/emoji\\/e\\/[a-f0-9]+_2x\\.png$/i.test(url)) {
+    if (/^https:\/\/vk\.ru\/emoji\/e\/[a-f0-9]+_2x\.png$/i.test(url)) {
       html += "<img class='vkEmoji' alt='" + safe(match[1]) + "' src='" + safe(url) + "'>";
     } else {
       html += "<a class='newsInlineLink' href='" + safe(url) + "' target='_blank' rel='noopener noreferrer'>" + label + "</a>";
