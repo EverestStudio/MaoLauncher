@@ -48,7 +48,7 @@ public final class MaoPresencePlugin extends JavaPlugin implements Listener, Plu
         String token = new String(message, StandardCharsets.US_ASCII);
         if (!TOKEN_PATTERN.matcher(token).matches()) return;
         markedPlayers.add(player.getUniqueId());
-        player.playerListName(Component.text("✦ ", NamedTextColor.GOLD)
+        player.playerListName(Component.text("ﾏ ", NamedTextColor.GOLD)
                 .append(Component.text(player.getName(), NamedTextColor.WHITE)));
         getLogger().fine("MaoLauncher marker enabled for " + player.getName());
     }
