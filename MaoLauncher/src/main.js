@@ -338,7 +338,9 @@ async function runMinecraft() {
     emit('install:progress', { stage: 'fabric', current: 0, total: 1, label: 'Подготовка Fabric' });
     const { profile, loader } = await installFabricProfile();
     let previous = {}; try { previous = JSON.parse(settings.installManifest); } catch {}
-    const { mods: modVersions, files: modFiles } = await installMods(previous.files || []);\n    const presenceModFile = installMaoPresenceMod();\n    if (presenceModFile) modFiles.push(presenceModFile);
+    const { mods: modVersions, files: modFiles } = await installMods(previous.files || []);
+    const presenceModFile = installMaoPresenceMod();
+    if (presenceModFile) modFiles.push(presenceModFile);
     const baseManifest = await api('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
     const gameEntry = baseManifest.versions.find(item => item.id === GAME_VERSION);
     if (!gameEntry) throw new Error(`Minecraft ${GAME_VERSION} отсутствует в официальном манифесте.`);
@@ -378,7 +380,7 @@ async function runMinecraft() {
     saveSettings({ ...settings, installManifest: JSON.stringify({ game: GAME_VERSION, loader, profile: profile.id, mods: modVersions.map(mod => `${mod.id}:${mod.version.id}`), files: modFiles }) });
     setDiscordGameState(true);
     emit('game:started', { pid: launchedProcess.pid, profile: selected.name });
-    return { started: true, pid: process.pid, loader, modCount: modVersions.length };
+    return { started: true, pid: launchedProcess.pid, loader, modCount: modVersions.length + (presenceModFile ? 1 : 0) };
   })();
   try { return await installPromise; } finally { installPromise = null; }
 }
@@ -516,11 +518,13 @@ async function installLauncherUpdate() {
       '} finally { Stop-Transcript | Out-Null }',
       'Start-Sleep -Seconds 2',
       'Remove-Item -LiteralPath ' + psQuote(work) + ' -Recurse -Force -ErrorAction SilentlyContinue'
-    ].join('\r\n');
+    ].join('\r
+');
     fs.writeFileSync(script, scriptText, 'utf8');
     emit('launcher-update:progress', { current: 95, label: 'Перезапускаем MaoLauncher' });
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], { detached: true, stdio: 'ignore', windowsHide: true });
-    child.once('error', error => { try { fs.appendFileSync(log, '\\nUpdater launch error: ' + error.message); } catch {} });
+    child.once('error', error => { try { fs.appendFileSync(log, '\
+Updater launch error: ' + error.message); } catch {} });
     child.unref();
     await new Promise(resolve => setTimeout(resolve, 700));
     app.quit(); return { started: true, version: release.version };
