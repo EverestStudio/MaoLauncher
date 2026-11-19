@@ -51,7 +51,9 @@ public final class MaoPresencePlugin extends JavaPlugin implements Listener, Plu
         player.playerListName(
             Component.text("ﾏ ")
                 .font(net.kyori.adventure.key.Key.key("mao", "default"))
-                .append(Component.text(player.getName(), NamedTextColor.WHITE))
+                .append(Component.text(player.getName(), NamedTextColor.WHITE)
+                       .font(net.kyori.adventure.key.Key.key("minecraft", "default"))
+                )
         );
         getLogger().fine("MaoLauncher marker enabled for " + player.getName());
     }
