@@ -61,27 +61,6 @@ jobs:
           Invoke-WebRequest "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip" -OutFile $zip
           Expand-Archive -Path $zip -DestinationPath $runtime -Force
 
-      - name: Set up Java 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.5.1"
-
-      - name: Build MaoPresence companion projects
-        run: gradle :fabric:build :paper:build
-        working-directory: MaoPresence
-
-      - name: Bundle Fabric presence mod with MaoLauncher
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "MaoLauncher/src/assets/mods" | Out-Null
-          Copy-Item "MaoPresence/fabric/build/libs/mao-presence-fabric-1.0.0.jar" "MaoLauncher/src/assets/mods/mao-presence-fabric-1.0.0.jar" -Force
-
       - name: Install npm dependencies
         working-directory: MaoLauncher
         run: npm install
@@ -125,7 +104,7 @@ jobs:
           if (!$tag) { $tag = "${{ github.ref_name }}" }
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" "MaoPresence/paper/build/libs/paper-1.0.0.jar" --clobber
+            gh release upload $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --clobber
           } else {
-            gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" "MaoPresence/paper/build/libs/paper-1.0.0.jar" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
+            gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
           }
