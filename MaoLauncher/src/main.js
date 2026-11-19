@@ -338,7 +338,9 @@ async function runMinecraft() {
     emit('install:progress', { stage: 'fabric', current: 0, total: 1, label: 'Подготовка Fabric' });
     const { profile, loader } = await installFabricProfile();
     let previous = {}; try { previous = JSON.parse(settings.installManifest); } catch {}
-    const { mods: modVersions, files: modFiles } = await installMods(previous.files || []);\n    const presenceModFile = installMaoPresenceMod();\n    if (presenceModFile) modFiles.push(presenceModFile);
+    const { mods: modVersions, files: modFiles } = await installMods(previous.files || []);
+    const presenceModFile = installMaoPresenceMod();
+    if (presenceModFile) modFiles.push(presenceModFile);
     const baseManifest = await api('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
     const gameEntry = baseManifest.versions.find(item => item.id === GAME_VERSION);
     if (!gameEntry) throw new Error(`Minecraft ${GAME_VERSION} отсутствует в официальном манифесте.`);

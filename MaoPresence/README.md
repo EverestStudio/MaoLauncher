@@ -7,7 +7,7 @@ Companion mod and plugin for Minecraft 26.2.
 
 ## Build
 
-Requires JDK 25 and Gradle 9.5.1.
+Requires JDK 25 and Gradle 9.6.0.
 
 ```sh
 gradle :fabric:build :paper:build
