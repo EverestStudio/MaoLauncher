@@ -44,21 +44,25 @@ public final class MaoPresencePlugin extends JavaPlugin implements Listener, Plu
 
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
-        if (!CHANNEL.equals(channel) || message.length != 64) return;
-        String token = new String(message, StandardCharsets.US_ASCII);
-        if (!TOKEN_PATTERN.matcher(token).matches()) return;
-        markedPlayers.add(player.getUniqueId());
-        player.playerListName(
-            Component.text("ﾏ ")
-                .font(net.kyori.adventure.key.Key.key("mao", "default"))
-                .append(Component.text(player.getName(), NamedTextColor.WHITE)
-                       .font(net.kyori.adventure.key.Key.key("minecraft", "default"))
-                )
-                .append(
-                    Component.text(player.getName(), NamedTextColor.WHITE)
+    if (!CHANNEL.equals(channel) || message.length != 64) return;
+
+    String token = new String(message, StandardCharsets.US_ASCII);
+    if (!TOKEN_PATTERN.matcher(token).matches()) return;
+
+    markedPlayers.add(player.getUniqueId());
+
+    player.playerListName(
+        Component.text("ﾏ")
+            .font(net.kyori.adventure.key.Key.key("mao", "default"))
+            .append(
+                Component.text(" ")
                     .font(net.kyori.adventure.key.Key.key("minecraft", "default"))
-                )
-        );
-        getLogger().fine("MaoLauncher marker enabled for " + player.getName());
-    }
+            )
+            .append(
+                Component.text(player.getName(), NamedTextColor.WHITE)
+                    .font(net.kyori.adventure.key.Key.key("minecraft", "default"))
+            )
+    );
+
+    getLogger().fine("MaoLauncher marker enabled for " + player.getName());
 }
