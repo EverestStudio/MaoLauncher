@@ -1,0 +1,6 @@
+name: MaoLauncherPresence
+version: 1.0.0
+main: ru.maopickme.presence.MaoLauncherPresencePlugin
+api-version: '26.2'
+description: Shows a MaoLauncher glyph in the player list.
+author: EverestStudio

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "mao_launcher_presence",
+  "version": "${version}",
+  "name": "MaoLauncher Presence",
+  "description": "Displays the MaoLauncher presence marker on supported Paper servers.",
+  "environment": "client",
+  "entrypoints": {
+    "main": ["ru.maopickme.launcher.presence.MaoPresenceMod"],
+    "client": ["ru.maopickme.launcher.presence.MaoPresenceClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.2",
+    "fabric-api": "*",
+    "java": ">=25"
+  }
+}

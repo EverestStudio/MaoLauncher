@@ -1,0 +1,39 @@
+name: Build MaoLauncher Presence
+on:
+  push:
+    branches: [main, "feature/mao-launcher-presence"]
+    paths:
+      - "presence-mod/**"
+      - "presence-plugin/**"
+      - ".github/workflows/build-presence.yml"
+  pull_request:
+    paths:
+      - "presence-mod/**"
+      - "presence-plugin/**"
+      - ".github/workflows/build-presence.yml"
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.1"
+      - name: Build Fabric mod
+        working-directory: presence-mod
+        run: gradle build
+      - name: Build Paper plugin
+        working-directory: presence-plugin
+        run: gradle build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mao-launcher-presence-builds
+          path: |
+            presence-mod/build/libs/*.jar
+            presence-plugin/build/libs/*.jar
+          if-no-files-found: error

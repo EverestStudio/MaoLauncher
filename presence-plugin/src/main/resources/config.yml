@@ -1,0 +1,6 @@
+# Upload the resource pack from resource-pack/ to HTTPS hosting and paste its direct ZIP URL.
+resource-pack:
+  url: ""
+  sha1: ""
+  required: false
+  prompt: "Загрузить ресурс-пак MaoLauncher для отображения значка в Tab?"
