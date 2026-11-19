@@ -305,6 +305,20 @@ async function installMods(previousFiles = []) {
   }
   return { mods, files };
 }
+
+function installMaoPresenceMod() {
+  const filename = 'mao-presence-fabric-1.0.0.jar';
+  const source = app.isPackaged
+    ? path.join(process.resourcesPath, 'mods', filename)
+    : path.join(__dirname, 'assets', 'mods', filename);
+  if (!fs.existsSync(source)) {
+    emit('game:log', 'MaoPresence mod is not bundled; the tab marker will be unavailable.');
+    return null;
+  }
+  const destination = path.join(gameRoot, 'mods', filename);
+  fs.copyFileSync(source, destination);
+  return filename;
+}
 async function installFabricProfile() {
   const loaders = await api(`https://meta.fabricmc.net/v2/versions/loader/${GAME_VERSION}`);
   const loader = loaders.find(item => item.loader?.stable) || loaders[0];
@@ -324,7 +338,7 @@ async function runMinecraft() {
     emit('install:progress', { stage: 'fabric', current: 0, total: 1, label: 'Подготовка Fabric' });
     const { profile, loader } = await installFabricProfile();
     let previous = {}; try { previous = JSON.parse(settings.installManifest); } catch {}
-    const { mods: modVersions, files: modFiles } = await installMods(previous.files || []);
+    const { mods: modVersions, files: modFiles } = await installMods(previous.files || []);\n    const presenceModFile = installMaoPresenceMod();\n    if (presenceModFile) modFiles.push(presenceModFile);
     const baseManifest = await api('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
     const gameEntry = baseManifest.versions.find(item => item.id === GAME_VERSION);
     if (!gameEntry) throw new Error(`Minecraft ${GAME_VERSION} отсутствует в официальном манифесте.`);
@@ -343,18 +357,27 @@ async function runMinecraft() {
     const javaPath = await ensureJava();
     const token = selected.uuid.replaceAll('-', '');
     const auth = { access_token: token, client_token: token, uuid: token, name: selected.name, user_properties: '{}', meta: { type: 'legacy' } };
-    const process = await launcher.launch({
-      authorization: auth, root: gameRoot, cache: path.join(gameRoot, 'cache'),
-      version: { number: GAME_VERSION, type: 'release', custom: profile.id },
-      memory: { max: `${settings.memory}M`, min: '1024M' },
-      javaPath,
-      overrides: { versionJson: baseJsonPath, detached: true },
-      quickPlay: { type: 'legacy', identifier: SERVER }
-    });
-    if (!process) throw new Error('Не удалось запустить игру. Проверьте Java 25 и журнал лаунчера.');
+    const presenceToken = crypto.randomBytes(32).toString('hex');
+    const previousJavaToolOptions = process.env.JAVA_TOOL_OPTIONS;
+    process.env.JAVA_TOOL_OPTIONS = [previousJavaToolOptions, `-Dmao.presence.token=${presenceToken}`].filter(Boolean).join(' ');
+    let launchedProcess;
+    try {
+      launchedProcess = await launcher.launch({
+        authorization: auth, root: gameRoot, cache: path.join(gameRoot, 'cache'),
+        version: { number: GAME_VERSION, type: 'release', custom: profile.id },
+        memory: { max: `${settings.memory}M`, min: '1024M' },
+        javaPath,
+        overrides: { versionJson: baseJsonPath, detached: true },
+        quickPlay: { type: 'legacy', identifier: SERVER }
+      });
+    } finally {
+      if (previousJavaToolOptions === undefined) delete process.env.JAVA_TOOL_OPTIONS;
+      else process.env.JAVA_TOOL_OPTIONS = previousJavaToolOptions;
+    }
+    if (!launchedProcess) throw new Error('Не удалось запустить игру. Проверьте Java 25 и журнал лаунчера.');
     saveSettings({ ...settings, installManifest: JSON.stringify({ game: GAME_VERSION, loader, profile: profile.id, mods: modVersions.map(mod => `${mod.id}:${mod.version.id}`), files: modFiles }) });
     setDiscordGameState(true);
-    emit('game:started', { pid: process.pid, profile: selected.name });
+    emit('game:started', { pid: launchedProcess.pid, profile: selected.name });
     return { started: true, pid: process.pid, loader, modCount: modVersions.length };
   })();
   try { return await installPromise; } finally { installPromise = null; }
