@@ -41,18 +41,31 @@ public final class MaoLauncherPresencePlugin extends JavaPlugin implements Liste
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (!CHANNEL.equals(channel) || message == null || message.length > 128) return;
-        String token = new String(message, StandardCharsets.UTF_8);
-        if (!TOKEN.matcher(token).matches()) return;
+        String token = decodeToken(message);
+        if (token == null || !TOKEN.matcher(token).matches()) return;
         long now = System.currentTimeMillis();
         Long previous = lastMessage.put(player.getUniqueId(), now);
         if (previous != null && now - previous < 3000L) return;
         applyName(player);
     }
 
+    private String decodeToken(byte[] data) {
+        int length = 0, shift = 0, index = 0;
+        while (index < data.length && shift < 35) {
+            int value = data[index++] & 0xff;
+            length |= (value & 0x7f) << shift;
+            if ((value & 0x80) == 0) {
+                if (length < 0 || length > 64 || data.length - index != length) return null;
+                return new String(data, index, length, StandardCharsets.UTF_8);
+            }
+            shift += 7;
+        }
+        return null;
+    }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        applyConfiguredResourcePack(player);
+        applyConfiguredResourcePack(event.getPlayer());
     }
 
     @EventHandler
@@ -90,7 +103,6 @@ public final class MaoLauncherPresencePlugin extends JavaPlugin implements Liste
         }
         boolean required = getConfig().getBoolean("resource-pack.required", false);
         String prompt = getConfig().getString("resource-pack.prompt", "Загрузить ресурс-пак MaoLauncher?");
-        if (hash == null) player.setResourcePack(url);
-        else player.setResourcePack(url, hash, Component.text(prompt), required);
+        player.setResourcePack(url, hash, Component.text(prompt), required);
     }
 }

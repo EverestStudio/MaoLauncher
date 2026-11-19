@@ -6,7 +6,8 @@
   "description": "Displays the MaoLauncher presence marker on supported Paper servers.",
   "environment": "client",
   "entrypoints": {
-    "main": ["ru.maopickme.launcher.presence.MaoPresenceMod"]
+    "main": ["ru.maopickme.launcher.presence.MaoPresenceMod"],
+    "client": ["ru.maopickme.launcher.presence.MaoPresenceClient"]
   },
   "depends": {
     "fabricloader": ">=0.19.3",
