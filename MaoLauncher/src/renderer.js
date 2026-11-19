@@ -69,7 +69,7 @@ function configureNavigation() {
   home.querySelector('#copyAddress')?.remove();
   const sideStatus = byId('sideStatus');
   if (sideStatus) sideStatus.textContent = 'Состояние сервера';
-  if (profileButton && sidefoot) {
+  if (profileButton) {
     profileButton.classList.add('profileNav');
     profileButton.style.cssText = 'display:flex;width:auto;margin:0;padding:8px 13px;text-align:left;border:1px solid #9c60c2;border-radius:5px;background:#21192a;color:var(--text);font-size:13px;font-weight:650';
     const dock = document.createElement('div');
