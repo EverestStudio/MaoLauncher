@@ -306,7 +306,7 @@ function applyLanguage() {
   byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
   byId('closeWindow').title = english ? 'Close' : 'Закрыть';
 }
-function render() { document.title = 'MaoLauncher'; const serverNews = newsCategory === 'server'; byId('homeNews').innerHTML = serverNews ? renderNews((config.news || []).slice(0, 3), true, true) : renderNews([]); byId('allNews').innerHTML = serverNews ? renderNews(config.news || []) : renderNews([]); document.querySelectorAll('[data-news-category]').forEach(button => button.classList.toggle('active', button.dataset.newsCategory === newsCategory)); const newsTitle = byId('newsPageTitle'); if (newsTitle) newsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; const newsSubtitle = byId('newsPageSubtitle'); if (newsSubtitle) newsSubtitle.textContent = serverNews ? 'Объявления сообщества' : 'Обновления и объявления MaoLauncher'; const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; if (byId('launchArgumentsSetting')) byId('launchArgumentsSetting').value = config.launchArguments || '';  document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
+function render() { document.title = 'MaoLauncher'; const serverNews = newsCategory === 'server'; const homeNewsTitle = byId('homeNewsTitle'); if (homeNewsTitle) homeNewsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; byId('homeNews').innerHTML = serverNews ? renderNews((config.news || []).slice(0, 3), true, true) : renderNews([]); byId('allNews').innerHTML = serverNews ? renderNews(config.news || []) : renderNews([]); document.querySelectorAll('[data-news-category]').forEach(button => button.classList.toggle('active', button.dataset.newsCategory === newsCategory)); const newsTitle = byId('newsPageTitle'); if (newsTitle) newsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; const newsSubtitle = byId('newsPageSubtitle'); if (newsSubtitle) newsSubtitle.textContent = serverNews ? 'Объявления сообщества' : 'Обновления и объявления MaoLauncher'; const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; if (byId('launchArgumentsSetting')) byId('launchArgumentsSetting').value = config.launchArguments || '';  document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
 async function refreshState() { try { const state = await window.launcher.gameState(); gameInstalled = Boolean(state.installed); gameRunning = Boolean(state.running); } catch { gameInstalled = false; gameRunning = false; } renderPlayButton(); }
 function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; if (byId('ping')) byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
 let serverCheckPromise = null;
@@ -484,7 +484,45 @@ for (const [id, key] of [['themeSetting', 'theme'], ['languageSetting', 'languag
 byId('launchArgumentsSetting')?.addEventListener('change', async event => { const previous = config; try { config = await window.launcher.saveSettings({ ...config, launchArguments: event.target.value.trim() }); notify('Аргументы запуска сохранены.'); } catch (error) { config = previous; render(); notify('Не удалось сохранить аргументы: ' + error.message, true); } });
 byId('openFolder').addEventListener('click', async () => { const error = await window.launcher.openGameFolder(); if (error) notify(error, true); });
 async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); const latestVersion = r.latestLauncherVersion ? 'MaoLauncher v' + r.latestLauncherVersion + '. ' : ''; if (hint) hint.textContent = latestVersion + (launcherUpdateAvailable ? 'Доступна новая версия. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'Установленные моды обновлены до последних версий.'); if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
-byId('supportSend')?.addEventListener('click', () => { const subject = byId('supportSubject').value.trim(), message = byId('supportMessage').value.trim(); if (!subject || !message) { notify('Заполни заголовок и сообщение.', true); return; } notify('Форма готова. Для отправки нужно подключить EmailJS.'); });
+async function sendSupportRequest() {
+  const subject = byId('supportSubject').value.trim();
+  const message = byId('supportMessage').value.trim();
+  const button = byId('supportSend');
+  const hint = byId('supportFormHint');
+  if (!subject || !message) { notify('Заполни заголовок и сообщение.', true); return; }
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = 'Отправляем…';
+  if (hint) hint.textContent = 'Отправляем обращение…';
+  try {
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: 'service_mdy3gqa',
+        template_id: 'template_i52qgrl',
+        user_id: 'IpDZGs1n3Af92cMem',
+        template_params: { subject, message, title: subject, content: message }
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) {
+      const details = (await response.text()).slice(0, 300);
+      throw new Error(details || 'EmailJS вернул HTTP ' + response.status);
+    }
+    byId('supportSubject').value = '';
+    byId('supportMessage').value = '';
+    if (hint) hint.textContent = 'Обращение успешно отправлено.';
+    notify('Обращение отправлено. Спасибо!');
+  } catch (error) {
+    if (hint) hint.textContent = 'Не удалось отправить обращение. Попробуйте ещё раз.';
+    notify('Ошибка отправки: ' + error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Отправить';
+  }
+}
+byId('supportSend')?.addEventListener('click', sendSupportRequest);
 byId('checkUpdates')?.addEventListener('click', () => checkUpdates());
 byId('minimizeWindow').addEventListener('click', () => window.launcher.windowAction('minimize')); byId('closeWindow').addEventListener('click', () => window.launcher.windowAction('close'));
 window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = false; byId('progressBar').style.width = Math.max(2, d.current || 2) + '%'; byId('progressText').textContent = d.label || 'Обновление MaoLauncher…'; });
