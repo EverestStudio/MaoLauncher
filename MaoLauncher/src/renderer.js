@@ -42,22 +42,22 @@ function configureNavigation() {
   home.querySelector('[data-quick=top]')?.remove();
   home.querySelector('[data-quick=shop]')?.remove();
   const communityLinks = [
-    [home.querySelector('[data-quick="discord"]'), 'https://t.me/+RFqx4ziQjLQzNGYy', 'Telegram-чат', '◉'],
-    [home.querySelector('[data-quick="website"]'), 'https://maopickme.ru', 'Наш сайт', '↗'],
+    [home.querySelector('[data-quick="discord"]'), 'https://t.me/+RFqx4ziQjLQzNGYy', 'Telegram-чат', 'tg.png'],
+    [home.querySelector('[data-quick="website"]'), 'https://maopickme.ru', 'Наш сайт', 'site.png'],
   ];
   for (const [link, href, label, icon] of communityLinks) {
     if (!link) continue;
     link.href = href;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.innerHTML = `<span class="quickIcon">${icon}</span>${label}`;
+    link.innerHTML = `<span class="quickIcon"><img src="assets/${icon}" alt=""></span>${label}`;
   }
   const vkLink = document.createElement('a');
   vkLink.className = 'quickLink';
   vkLink.href = 'https://vk.ru/maopickme_mc';
   vkLink.target = '_blank';
   vkLink.rel = 'noopener noreferrer';
-  vkLink.innerHTML = '<span class="quickIcon">↗</span>Группа ВК';
+  vkLink.innerHTML = '<span class="quickIcon"><img src="assets/vk.png" alt=""></span>Группа ВК';
   home.querySelector('.quickLinks')?.append(vkLink);
   const offlineIcon = document.querySelector('#offlineChoice .accountIcon');
   if (offlineIcon) offlineIcon.innerHTML = '<img alt="" src="https://mc-heads.net/avatar/Steve/42">';
