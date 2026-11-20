@@ -23,7 +23,7 @@ const PROJECTS = [
   ['player-animation-library', 'Player Animation Library'], ['sodium', 'Sodium'], ['iris', 'Iris'],
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
-const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', installManifest: '' };
+const DEFAULTS = { memory: 4096, launchArguments: '', theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', installManifest: '' };
 let mainWindow;
 let localServer;
 let localServerPort;
@@ -32,10 +32,23 @@ let quitting = false;
 let settingsPath;
 let gameRoot;
 let installPromise;
+let gameRunning = false;
 let newsCache = [];
 let newsCacheAt = 0;
 let newsRequest = null;
 
+function parseLaunchArguments(value) {
+  const source = String(value || '').trim();
+  const args = [];
+  const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|([^\\s]+)/g;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const arg = match[1] ?? match[2] ?? match[3];
+    if (arg && !/[\u0000-\u001f]/.test(arg)) args.push(arg);
+    if (args.length >= 40) break;
+  }
+  return args;
+}
 function readSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsPath, 'utf8')) }; }
   catch { return { ...DEFAULTS }; }
@@ -47,6 +60,7 @@ function saveSettings(value) {
   clean.language = ['ru', 'en'].includes(clean.language) ? clean.language : 'ru';
   clean.minimizeBehavior = ['tray', 'taskbar'].includes(clean.minimizeBehavior) ? clean.minimizeBehavior : 'tray';
   clean.snowfall = clean.snowfall !== false;
+  clean.launchArguments = String(clean.launchArguments || '').slice(0, 1000);
   clean.profiles = Array.isArray(clean.profiles) ? clean.profiles.filter(p => p && /^[A-Za-z0-9_]{3,16}$/.test(p.name) && /^[0-9a-f-]{36}$/i.test(p.uuid)).map(p => ({ ...p, type: 'offline' })).slice(0, 20) : [];
   if (!clean.profiles.some(p => p.name === clean.activeProfile)) clean.activeProfile = clean.profiles[0]?.name || '';
   fs.writeFileSync(settingsPath, JSON.stringify(clean, null, 2));
@@ -355,7 +369,7 @@ async function runMinecraft() {
     const launcher = new Client();
     launcher.on('progress', progress => emit('install:progress', { stage: progress.type || 'minecraft', current: progress.task || 0, total: progress.total || 0, label: 'Загрузка игровых файлов' }));
     launcher.on('debug', line => { if (/failed|error/i.test(line)) emit('game:log', String(line).slice(-300)); });
-    launcher.on('close', code => { setDiscordGameState(false); emit('game:closed', { code }); });
+    launcher.on('close', code => { gameRunning = false; setDiscordGameState(false); emit('game:closed', { code }); });
     const javaPath = await ensureJava();
     const token = selected.uuid.replaceAll('-', '');
     const auth = { access_token: token, client_token: token, uuid: token, name: selected.name, user_properties: '{}', meta: { type: 'legacy' } };
@@ -368,6 +382,7 @@ async function runMinecraft() {
         authorization: auth, root: gameRoot, cache: path.join(gameRoot, 'cache'),
         version: { number: GAME_VERSION, type: 'release', custom: profile.id },
         memory: { max: `${settings.memory}M`, min: '1024M' },
+        customArgs: parseLaunchArguments(settings.launchArguments),
         javaPath,
         overrides: { versionJson: baseJsonPath, detached: true },
         quickPlay: { type: 'legacy', identifier: SERVER }
@@ -378,6 +393,7 @@ async function runMinecraft() {
     }
     if (!launchedProcess) throw new Error('Не удалось запустить игру. Проверьте Java 25 и журнал лаунчера.');
     saveSettings({ ...settings, installManifest: JSON.stringify({ game: GAME_VERSION, loader, profile: profile.id, mods: modVersions.map(mod => `${mod.id}:${mod.version.id}`), files: modFiles }) });
+    gameRunning = true;
     setDiscordGameState(true);
     emit('game:started', { pid: launchedProcess.pid, profile: selected.name });
     return { started: true, pid: launchedProcess.pid, loader, modCount: modVersions.length + (presenceModFile ? 1 : 0) };
@@ -585,7 +601,7 @@ app.whenReady().then(async () => {
     if (settings.activeProfile === name) settings.activeProfile = settings.profiles[0]?.name || '';
     return saveSettings(settings);
   });
-  ipcMain.handle('game:state', () => { const settings = readSettings(); let manifest = {}; try { manifest = JSON.parse(settings.installManifest); } catch {} const versionPath = manifest.profile && path.join(gameRoot, 'versions', manifest.profile, `${manifest.profile}.json`); const installed = Boolean(versionPath && fs.existsSync(versionPath) && fs.existsSync(path.join(gameRoot, 'versions', `${GAME_VERSION}.json`)) && Array.isArray(manifest.files) && manifest.files.length >= PROJECTS.length && manifest.files.every(file => fs.existsSync(path.join(gameRoot, 'mods', file)))); return { installed, root: gameRoot, busy: Boolean(installPromise) }; });
+  ipcMain.handle('game:state', () => { const settings = readSettings(); let manifest = {}; try { manifest = JSON.parse(settings.installManifest); } catch {} const versionPath = manifest.profile && path.join(gameRoot, 'versions', manifest.profile, `${manifest.profile}.json`); const installed = Boolean(versionPath && fs.existsSync(versionPath) && fs.existsSync(path.join(gameRoot, 'versions', `${GAME_VERSION}.json`)) && Array.isArray(manifest.files) && manifest.files.length >= PROJECTS.length && manifest.files.every(file => fs.existsSync(path.join(gameRoot, 'mods', file)))); return { installed, root: gameRoot, busy: Boolean(installPromise), running: gameRunning }; });
   ipcMain.handle('game:install', () => runMinecraft());
   ipcMain.handle('game:open-folder', () => { fs.mkdirSync(gameRoot, { recursive: true }); return shell.openPath(gameRoot); });
   ipcMain.handle('update:check', async () => {
