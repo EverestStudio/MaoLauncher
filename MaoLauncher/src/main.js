@@ -40,7 +40,7 @@ let newsRequest = null;
 function parseLaunchArguments(value) {
   const source = String(value || '').trim();
   const args = [];
-  const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|([^\\s]+)/g;
+  const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|([^\s]+)/g;
   let match;
   while ((match = pattern.exec(source))) {
     const arg = match[1] ?? match[2] ?? match[3];
