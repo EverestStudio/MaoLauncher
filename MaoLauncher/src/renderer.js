@@ -110,6 +110,9 @@ function configureNavigation() {
 }
 const safe = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\"', '&quot;').replaceAll("'", '&#39;');
 function notify(message, error = false) { const toast = byId('toast'); toast.textContent = message; toast.classList.toggle('error', error); toast.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4200); }
+let supportNoticeTimer = null;
+function showSupportNotice(message, error = false) { const notice = byId('supportNotice'); if (!notice) { notify(message, error); return; } byId('supportNoticeIcon').textContent = error ? '×' : '✓'; byId('supportNoticeMessage').textContent = message; notice.classList.toggle('error', error); notice.hidden = false; clearTimeout(supportNoticeTimer); supportNoticeTimer = setTimeout(() => { notice.hidden = true; }, 3000); }
+byId('supportNotice')?.addEventListener('click', () => { byId('supportNotice').hidden = true; clearTimeout(supportNoticeTimer); });
 let snowfallFrame = 0, snowfallCanvas, snowfallContext, snowfallParticles = [], snowfallLastTime = 0;
 function resizeSnowfall() {
   if (!snowfallCanvas || !snowfallContext) return;
@@ -489,7 +492,7 @@ async function sendSupportRequest() {
   const message = byId('supportMessage').value.trim();
   const button = byId('supportSend');
   const hint = byId('supportFormHint');
-  if (!subject || !message) { notify('Заполни заголовок и сообщение.', true); return; }
+  if (!subject || !message) { showSupportNotice('Заполни заголовок и сообщение.', true); return; }
   if (button.disabled) return;
   button.disabled = true;
   button.textContent = 'Отправляем…';
@@ -513,10 +516,10 @@ async function sendSupportRequest() {
     byId('supportSubject').value = '';
     byId('supportMessage').value = '';
     if (hint) hint.textContent = 'Обращение успешно отправлено.';
-    notify('Обращение отправлено. Спасибо!');
+    showSupportNotice('Обращение успешно отправлено. Спасибо!');
   } catch (error) {
     if (hint) hint.textContent = 'Не удалось отправить обращение. Попробуйте ещё раз.';
-    notify('Ошибка отправки: ' + error.message, true);
+    showSupportNotice('Не удалось отправить обращение. Попробуйте ещё раз.', true);
   } finally {
     button.disabled = false;
     button.textContent = 'Отправить';
