@@ -6,7 +6,7 @@ return [
         'port' => 3306,
         'name' => 'hm572194_maoaccounts',
         'user' => 'hm572194_tomskiy',
-        'pass' => 'ef1seoa6',
+        'pass' => 'ef1seoa6!',
         'charset' => 'utf8mb4',
     ],
     'app' => [
