@@ -1,6 +1,6 @@
 # MaoAuth server configuration. Keep server-secret private.
 api-url: "https://hm572194.webhm.cloud/api/game-login.php"
-server-secret: "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
+server-secret: "YAWQ=zWph35f68PtSzqUr8eCn1Voz0WD"
 # Password login via the MaoPickMe account is enabled.
 # Launcher ticket authentication will be added in the next stage.
 session-timeout-seconds: 45
