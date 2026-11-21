@@ -196,7 +196,7 @@ public final class MaoAuthPlugin extends JavaPlugin implements Listener {
     @EventHandler public void onBreak(BlockBreakEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
     @EventHandler public void onPlace(BlockPlaceEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
     @EventHandler public void onDamage(EntityDamageEvent e){if(e.getEntity() instanceof Player p && locked(p))e.setCancelled(true);}
-    @EventHandler public void onPickup(EntityPickupItemEvent e){if(locked(e.getEntity()))e.setCancelled(true);}
+    @EventHandler public void onPickup(EntityPickupItemEvent e){if(e.getEntity() instanceof Player p && locked(p))e.setCancelled(true);}
     @EventHandler public void onDrop(PlayerDropItemEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
     @EventHandler public void onSwap(PlayerSwapHandItemsEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
     @EventHandler public void onConsume(org.bukkit.event.player.PlayerItemConsumeEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
