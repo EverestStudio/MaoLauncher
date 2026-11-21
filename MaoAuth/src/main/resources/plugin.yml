@@ -1,7 +1,7 @@
 name: MaoAuth
 version: 0.1.0
 main: studio.everest.maoauth.MaoAuthPlugin
-api-version: '1.21'
+api-version: '26.2'
 authors: [EverestStudio]
 description: MaoPickMe unified account authentication
 commands:
