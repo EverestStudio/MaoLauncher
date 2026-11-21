@@ -582,12 +582,20 @@ app.whenReady().then(async () => {
   ipcMain.handle('skins:lookup', async (_event, nameValue) => {
     const name = String(nameValue || '').trim();
     if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) return { found: false };
-    const profileResponse = await fetch('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name), {
-      headers: { 'Accept': 'application/json', 'User-Agent': 'MaoLauncher/' + LAUNCHER_VERSION },
+    const lookupHeaders = { 'Accept': 'application/json', 'User-Agent': 'MaoLauncher/' + LAUNCHER_VERSION };
+    let profileResponse = await fetch('https://api.minecraftservices.com/minecraft/profile/lookup/name/' + encodeURIComponent(name), {
+      headers: lookupHeaders,
       signal: AbortSignal.timeout(10000)
     });
+    // Mojang's legacy endpoint remains a fallback; it can intermittently return 403.
+    if (profileResponse.status === 403 || profileResponse.status >= 500) {
+      profileResponse = await fetch('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name), {
+        headers: lookupHeaders,
+        signal: AbortSignal.timeout(10000)
+      });
+    }
     if (profileResponse.status === 404) return { found: false };
-    if (!profileResponse.ok) throw new Error('Mojang API вернул HTTP ' + profileResponse.status);
+    if (!profileResponse.ok) throw new Error('Minecraft profile API вернул HTTP ' + profileResponse.status);
     const profile = await profileResponse.json();
     if (!profile?.id) return { found: false };
     const sessionResponse = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + encodeURIComponent(profile.id), {
