@@ -141,13 +141,11 @@ public final class MaoAuthPlugin extends JavaPlugin implements Listener {
     private void openAnvil(Player p, Step step, String identity) {
         String title = step == Step.IDENTITY ? IDENTITY_TITLE : PASSWORD_TITLE;
         Inventory inv = Bukkit.createInventory(null, InventoryType.ANVIL, title);
-        inv.setItem(0, item(Material.PAPER,
-            step == Step.IDENTITY ? ChatColor.WHITE+"Введите логин" : ChatColor.WHITE+"Введите пароль",
-            "Введите текст в поле наковальни", "Нажмите на результат справа"));
+        inv.setItem(0, new ItemStack(Material.PAPER));
         prompts.put(p.getUniqueId(), new Prompt(step, identity));
         p.openInventory(inv);
         p.sendMessage(ChatColor.GRAY + (step == Step.IDENTITY
-            ? "Введи логин MaoPickMe в поле наковальни и нажми на результат."
+            ? "Введи логин MaoPickMe (до 50 символов) в поле наковальни и нажми на результат."
             : "Введи пароль в поле наковальни и нажми на результат. Вводимый пароль виден на экране."));
     }
 
