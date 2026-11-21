@@ -528,7 +528,7 @@ async function updateSkinPreview(rawName) {
     if (skinPreviewViewer) {
       try { await skinPreviewViewer.loadSkin('https://mc-heads.net/skin/Steve'); } catch {}
       if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
-      setSkinPreviewState('ready', 'Не удалось проверить ник · стандартный Steve');
+      setSkinPreviewState('ready', 'Ошибка проверки ника · ' + String(error?.message || 'сервис недоступен') + ' · Steve');
     } else {
       if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
       setSkinPreviewState('fallback', '3D-предпросмотр недоступен · Steve');
