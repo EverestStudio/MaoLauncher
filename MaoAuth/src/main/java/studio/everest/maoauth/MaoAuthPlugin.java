@@ -10,6 +10,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.event.player.*;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -33,6 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class MaoAuthPlugin extends JavaPlugin implements Listener {
     private static final String MENU_TITLE = ChatColor.DARK_PURPLE + "MaoPickMe | Авторизация";
+    private static final String IDENTITY_TITLE = ChatColor.DARK_PURPLE + "MaoPickMe | Логин";
+    private static final String PASSWORD_TITLE = ChatColor.DARK_PURPLE + "MaoPickMe | Пароль";
     private final Gson gson = new Gson();
     private final Set<UUID> authenticated = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Prompt> prompts = new ConcurrentHashMap<>();
@@ -92,18 +96,61 @@ public final class MaoAuthPlugin extends JavaPlugin implements Listener {
 
     @EventHandler public void onMenuClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
-        if (locked(p)) e.setCancelled(true);
-        if (!MENU_TITLE.equals(e.getView().getTitle())) return;
-        e.setCancelled(true);
-        if (e.getRawSlot()==11) {
-            p.closeInventory(); prompts.put(p.getUniqueId(),new Prompt(Step.IDENTITY,null));
-            p.sendMessage(ChatColor.LIGHT_PURPLE+"MaoPickMe "+ChatColor.GRAY+"| Введи логин или email в чат. Сообщение не будет опубликовано.");
-        } else if(e.getRawSlot()==22) p.kickPlayer(ChatColor.RED+"Для входа требуется авторизация MaoPickMe.");
-        else if(e.getRawSlot()==13 || e.getRawSlot()==15) {
-            p.sendMessage(ChatColor.AQUA+"Регистрация и подтверждение почты: https://hm572194.webhm.cloud/account/register.html");
-            p.sendMessage(ChatColor.GRAY+"После регистрации вернись и нажми «Войти».");
+        String title = e.getView().getTitle();
+        if (MENU_TITLE.equals(title)) {
+            e.setCancelled(true);
+            if (e.getRawSlot()==11) {
+                p.closeInventory();
+                Bukkit.getScheduler().runTask(this, () -> {
+                    if (p.isOnline()) openAnvil(p, Step.IDENTITY, null);
+                });
+            } else if(e.getRawSlot()==22) {
+                p.kickPlayer(ChatColor.RED+"Для входа требуется авторизация MaoPickMe.");
+            } else if(e.getRawSlot()==13 || e.getRawSlot()==15) {
+                p.sendMessage(ChatColor.AQUA+"Регистрация и подтверждение почты: https://hm572194.webhm.cloud/account/register.html");
+                p.sendMessage(ChatColor.GRAY+"После регистрации вернись на сервер и нажми «Войти».");
+            }
+            return;
+        }
+        if (IDENTITY_TITLE.equals(title) || PASSWORD_TITLE.equals(title)) {
+            e.setCancelled(true);
+            if (e.getRawSlot()!=2 || !(e.getView().getTopInventory() instanceof AnvilInventory anvil)) return;
+            Prompt prompt = prompts.get(p.getUniqueId());
+            if (prompt == null) return;
+            String input = anvil.getRenameText();
+            if (input == null || input.isBlank() || input.length() > 50) {
+                p.sendMessage(ChatColor.RED+"Поле пустое или слишком длинное. Максимум 50 символов.");
+                return;
+            }
+            if (prompt.step == Step.IDENTITY) {
+                String identity = input.trim();
+                p.closeInventory();
+                Bukkit.getScheduler().runTask(this, () -> {
+                    if (p.isOnline()) openAnvil(p, Step.PASSWORD, identity);
+                });
+            } else {
+                prompts.remove(p.getUniqueId());
+                p.closeInventory();
+                authenticate(p, prompt.identity, input);
+            }
+        } else if (locked(p)) {
+            e.setCancelled(true);
         }
     }
+
+    private void openAnvil(Player p, Step step, String identity) {
+        String title = step == Step.IDENTITY ? IDENTITY_TITLE : PASSWORD_TITLE;
+        Inventory inv = Bukkit.createInventory(null, InventoryType.ANVIL, title);
+        inv.setItem(0, item(Material.PAPER,
+            step == Step.IDENTITY ? ChatColor.WHITE+"Введите логин" : ChatColor.WHITE+"Введите пароль",
+            "Введите текст в поле наковальни", "Нажмите на результат справа"));
+        prompts.put(p.getUniqueId(), new Prompt(step, identity));
+        p.openInventory(inv);
+        p.sendMessage(ChatColor.GRAY + (step == Step.IDENTITY
+            ? "Введи логин MaoPickMe в поле наковальни и нажми на результат."
+            : "Введи пароль в поле наковальни и нажми на результат. Вводимый пароль виден на экране."));
+    }
+
     @EventHandler public void onDrag(InventoryDragEvent e) {
         if (e.getWhoClicked() instanceof Player p && locked(p)) e.setCancelled(true);
         if(MENU_TITLE.equals(e.getView().getTitle())) e.setCancelled(true);
@@ -112,18 +159,9 @@ public final class MaoAuthPlugin extends JavaPlugin implements Listener {
     @EventHandler public void onHeld(PlayerItemHeldEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
 
     @EventHandler public void onChat(AsyncPlayerChatEvent e) {
-        Player p=e.getPlayer(); if(authenticated.contains(p.getUniqueId())) return;
-        e.setCancelled(true);
-        Prompt prompt=prompts.get(p.getUniqueId());
-        if(prompt==null) { Bukkit.getScheduler().runTask(this,()->openMenu(p)); return; }
-        String input=e.getMessage();
-        if(input.length()>254 || input.isBlank()) { p.sendMessage(ChatColor.RED+"Некорректный ввод. Попробуй ещё раз."); return; }
-        if(prompt.step==Step.IDENTITY) {
-            prompts.put(p.getUniqueId(),new Prompt(Step.PASSWORD,input));
-            p.sendMessage(ChatColor.LIGHT_PURPLE+"Теперь введи пароль MaoPickMe. Он скрыт и не появится в чате.");
-        } else {
-            prompts.remove(p.getUniqueId());
-            authenticate(p,prompt.identity,input);
+        if (!authenticated.contains(e.getPlayer().getUniqueId())) {
+            e.setCancelled(true);
+            e.getPlayer().sendMessage(ChatColor.RED+"Используй меню MaoAuth для авторизации, а не чат.");
         }
     }
 
