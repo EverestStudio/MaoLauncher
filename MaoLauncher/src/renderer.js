@@ -509,6 +509,7 @@ async function lookupOfficialSkin(name, sequence) {
   return skinUrl;
 }
 async function updateSkinPreview(rawName) {
+  initSkinPreview();
   const name = String(rawName || '').trim();
   const sequence = ++skinLookupSequence;
   const fallback = byId('profileSkinFallback');
@@ -538,9 +539,12 @@ async function updateSkinPreview(rawName) {
     console.warn('Official skin lookup failed:', error);
     if (skinPreviewViewer) {
       try { await skinPreviewViewer.loadSkin('https://mc-heads.net/skin/Steve'); } catch {}
+      if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
+      setSkinPreviewState('ready', 'Не удалось проверить ник · стандартный Steve');
+    } else {
+      if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
+      setSkinPreviewState('fallback', '3D-предпросмотр недоступен · Steve');
     }
-    if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
-    setSkinPreviewState('fallback', 'Не удалось загрузить скин · Steve');
   }
 }
 byId('profileName').addEventListener('input', event => {
