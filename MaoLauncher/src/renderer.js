@@ -476,6 +476,7 @@ function initSkinPreview() {
       canvas: byId('profileSkinCanvas'),
       width: 220,
       height: 250,
+      background: null,
       skin: 'https://mc-heads.net/skin/Steve'
     });
     skinPreviewViewer.controls.enableRotate = true;
@@ -491,22 +492,9 @@ function initSkinPreview() {
   }
 }
 async function lookupOfficialSkin(name, sequence) {
-  const profileResponse = await fetch('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name), { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-  if (profileResponse.status === 404) return null;
-  if (!profileResponse.ok) throw new Error('Mojang API HTTP ' + profileResponse.status);
-  const profile = await profileResponse.json();
-  if (!profile?.id) return null;
-  const sessionResponse = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + encodeURIComponent(profile.id), { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-  if (!sessionResponse.ok) throw new Error('Session API HTTP ' + sessionResponse.status);
-  const session = await sessionResponse.json();
-  const property = Array.isArray(session.properties) ? session.properties.find(item => item.name === 'textures') : null;
-  if (!property?.value) return null;
-  let decoded;
-  try { decoded = JSON.parse(atob(property.value)); } catch { return null; }
-  const skinUrl = decoded?.textures?.SKIN?.url;
-  if (!skinUrl || !/^https:\/\/textures\.minecraft\.net\/texture\/[a-f0-9]+$/i.test(skinUrl)) return null;
+  const result = await window.launcher.lookupOfficialSkin(name);
   if (sequence !== skinLookupSequence) return null;
-  return skinUrl;
+  return result?.found ? result.skinUrl : null;
 }
 async function updateSkinPreview(rawName) {
   initSkinPreview();
@@ -540,7 +528,7 @@ async function updateSkinPreview(rawName) {
     if (skinPreviewViewer) {
       try { await skinPreviewViewer.loadSkin('https://mc-heads.net/skin/Steve'); } catch {}
       if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
-      setSkinPreviewState('ready', 'Не удалось проверить ник · стандартный Steve');
+      setSkinPreviewState('ready', 'Ошибка проверки ника · ' + String(error?.message || 'сервис недоступен') + ' · Steve');
     } else {
       if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
       setSkinPreviewState('fallback', '3D-предпросмотр недоступен · Steve');

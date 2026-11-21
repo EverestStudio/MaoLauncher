@@ -579,6 +579,32 @@ app.whenReady().then(async () => {
   gameRoot = path.join(app.getPath('userData'), 'game');
   ipcMain.handle('settings:read', () => readSettings());
   ipcMain.handle('settings:save', (_event, value) => saveSettings(value));
+  ipcMain.handle('skins:lookup', async (_event, nameValue) => {
+    const name = String(nameValue || '').trim();
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) return { found: false };
+    const profileResponse = await fetch('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name), {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'MaoLauncher/' + LAUNCHER_VERSION },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (profileResponse.status === 404) return { found: false };
+    if (!profileResponse.ok) throw new Error('Mojang API вернул HTTP ' + profileResponse.status);
+    const profile = await profileResponse.json();
+    if (!profile?.id) return { found: false };
+    const sessionResponse = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + encodeURIComponent(profile.id), {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'MaoLauncher/' + LAUNCHER_VERSION },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!sessionResponse.ok) throw new Error('Session API вернул HTTP ' + sessionResponse.status);
+    const session = await sessionResponse.json();
+    const property = Array.isArray(session.properties) ? session.properties.find(item => item.name === 'textures') : null;
+    if (!property?.value) return { found: false };
+    let textures;
+    try { textures = JSON.parse(Buffer.from(property.value, 'base64').toString('utf8')); }
+    catch { return { found: false }; }
+    const skinUrl = textures?.textures?.SKIN?.url;
+    if (!skinUrl || !/^https:\/\/textures\.minecraft\.net\/texture\/[a-f0-9]+$/i.test(skinUrl)) return { found: false };
+    return { found: true, skinUrl };
+  });
   ipcMain.handle('profiles:add', (_event, nameValue) => {
     const name = String(nameValue || '').trim();
     if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) throw new Error('Ник должен содержать 3–16 символов: латиница, цифры или _.');
