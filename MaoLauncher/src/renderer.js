@@ -1,12 +1,11 @@
-const defaults = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', news: [] };
-let config = { ...defaults }, gameInstalled = false, gameBusy = false, gameUpdateAvailable = false, launcherUpdateAvailable = false, toastTimer;
+const defaults = { memory: 4096, launchArguments: '', theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', news: [] };
+let config = { ...defaults }, gameInstalled = false, gameBusy = false, gameRunning = false, newsCategory = 'server', gameUpdateAvailable = false, launcherUpdateAvailable = false, toastTimer;
 const byId = (id) => document.getElementById(id);
 function configureNavigation() {
   const profileButton = document.querySelector('.profileDockMount [data-view="profileview"]');
   const mapButton = document.querySelector('.nav button[data-view="mapview"]');
   const serverButton = document.querySelector('.nav button[data-view="serverview"]');
   const aboutButton = document.querySelector('.nav button[data-view="aboutview"]');
-  const sidefoot = document.querySelector('.sidefoot');
   const settings = document.querySelector('#settingsview .launcherSettings');
   const aboutView = byId('aboutview');
   const home = byId('home');
@@ -43,22 +42,22 @@ function configureNavigation() {
   home.querySelector('[data-quick=top]')?.remove();
   home.querySelector('[data-quick=shop]')?.remove();
   const communityLinks = [
-    [home.querySelector('[data-quick="discord"]'), 'https://t.me/+RFqx4ziQjLQzNGYy', 'Telegram-чат', '◉'],
-    [home.querySelector('[data-quick="website"]'), 'https://maopickme.ru', 'Наш сайт', '↗'],
+    [home.querySelector('[data-quick="discord"]'), 'https://t.me/+RFqx4ziQjLQzNGYy', 'Telegram-чат', 'tg.png'],
+    [home.querySelector('[data-quick="website"]'), 'https://maopickme.ru', 'Наш сайт', 'site.png'],
   ];
   for (const [link, href, label, icon] of communityLinks) {
     if (!link) continue;
     link.href = href;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.innerHTML = `<span class="quickIcon">${icon}</span>${label}`;
+    link.innerHTML = `<span class="quickIcon"><img src="assets/${icon}" alt=""></span>${label}`;
   }
   const vkLink = document.createElement('a');
   vkLink.className = 'quickLink';
   vkLink.href = 'https://vk.ru/maopickme_mc';
   vkLink.target = '_blank';
   vkLink.rel = 'noopener noreferrer';
-  vkLink.innerHTML = '<span class="quickIcon">↗</span>Группа ВК';
+  vkLink.innerHTML = '<span class="quickIcon"><img src="assets/vk.png" alt=""></span>Группа ВК';
   home.querySelector('.quickLinks')?.append(vkLink);
   const offlineIcon = document.querySelector('#offlineChoice .accountIcon');
   if (offlineIcon) offlineIcon.innerHTML = '<img alt="" src="https://mc-heads.net/avatar/Steve/42">';
@@ -70,7 +69,7 @@ function configureNavigation() {
   home.querySelector('#copyAddress')?.remove();
   const sideStatus = byId('sideStatus');
   if (sideStatus) sideStatus.textContent = 'Состояние сервера';
-  if (profileButton && sidefoot) {
+  if (profileButton) {
     profileButton.classList.add('profileNav');
     profileButton.style.cssText = 'display:flex;width:auto;margin:0;padding:8px 13px;text-align:left;border:1px solid #9c60c2;border-radius:5px;background:#21192a;color:var(--text);font-size:13px;font-weight:650';
     const dock = document.createElement('div');
@@ -101,7 +100,7 @@ function configureNavigation() {
     const details = document.createElement('div');
     details.className = 'muted';
     details.style.fontSize = '11px';
-    details.textContent = [...source.querySelectorAll('.muted')].map(item => item.textContent).join(' · ');
+    details.textContent = [...source.querySelectorAll('.muted')].map(item => item.textContent.replaceAll('mc.maopickme.ru', 'MaoPickMe')).join(' · ');
     const row = document.createElement('div');
     row.className = 'settingsRow';
     row.append(title, details);
@@ -111,45 +110,70 @@ function configureNavigation() {
 }
 const safe = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\"', '&quot;').replaceAll("'", '&#39;');
 function notify(message, error = false) { const toast = byId('toast'); toast.textContent = message; toast.classList.toggle('error', error); toast.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4200); }
-let snowfallFrame = 0, snowfallCanvas, snowfallContext, snowfallParticles = [];
+let supportNoticeTimer = null;
+function showSupportNotice(message, error = false) { const notice = byId('supportNotice'); if (!notice) { notify(message, error); return; } byId('supportNoticeIcon').textContent = error ? '×' : '✓'; byId('supportNoticeMessage').textContent = message; notice.classList.toggle('error', error); notice.hidden = false; clearTimeout(supportNoticeTimer); supportNoticeTimer = setTimeout(() => { notice.hidden = true; }, 3000); }
+byId('supportNotice')?.addEventListener('click', () => { byId('supportNotice').hidden = true; clearTimeout(supportNoticeTimer); });
+let snowfallFrame = 0, snowfallCanvas, snowfallContext, snowfallParticles = [], snowfallLastTime = 0;
 function resizeSnowfall() {
   if (!snowfallCanvas || !snowfallContext) return;
-  const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
-  snowfallCanvas.width = Math.round(window.innerWidth * ratio);
-  snowfallCanvas.height = Math.round(window.innerHeight * ratio);
-  snowfallCanvas.style.width = window.innerWidth + 'px';
-  snowfallCanvas.style.height = window.innerHeight + 'px';
+  const ratio = Math.min(window.devicePixelRatio || 1, 1.25);
+  const width = window.innerWidth, height = window.innerHeight;
+  snowfallCanvas.width = Math.round(width * ratio);
+  snowfallCanvas.height = Math.round(height * ratio);
+  snowfallCanvas.style.width = width + 'px';
+  snowfallCanvas.style.height = height + 'px';
   snowfallContext.setTransform(ratio, 0, 0, ratio, 0, 0);
-  const count = Math.min(72, Math.max(18, Math.round(window.innerWidth * window.innerHeight / 22000)));
+  const count = Math.min(54, Math.max(18, Math.round(width * height / 30000)));
   snowfallParticles = Array.from({ length: count }, () => ({
-    x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
-    emoji: '❄️',
-    size: 11 + Math.random() * 9, speed: .3 + Math.random() * .7,
-    drift: -.25 + Math.random() * .5, phase: Math.random() * Math.PI * 2,
+    x: Math.random() * width, y: Math.random() * height,
+    size: 3 + Math.random() * 4.5,
+    speed: .28 + Math.random() * .48,
+    drift: -.18 + Math.random() * .36,
+    phase: Math.random() * Math.PI * 2,
     rotation: Math.random() * Math.PI * 2,
-    rotationSpeed: (Math.random() * .018 + .006) * (Math.random() < .5 ? -1 : 1),
-    opacity: .55 + Math.random() * .35
+    rotationSpeed: (Math.random() * .012 + .004) * (Math.random() < .5 ? -1 : 1),
+    opacity: .35 + Math.random() * .4
   }));
+  snowfallLastTime = 0;
 }
-function drawSnowfall() {
-  if (!config.snowfall || !snowfallContext) { snowfallFrame = 0; return; }
+function drawSnowfall(timestamp) {
+  if (!config.snowfall || !snowfallContext) { snowfallFrame = 0; snowfallLastTime = 0; return; }
   const ctx = snowfallContext, width = window.innerWidth, height = window.innerHeight;
+  const elapsed = snowfallLastTime ? Math.min(40, Math.max(0, timestamp - snowfallLastTime)) : 16.67;
+  const step = elapsed / 16.67;
+  snowfallLastTime = timestamp;
   ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = 'rgba(224, 211, 246, .92)';
+  ctx.lineWidth = 1.15;
+  ctx.lineCap = 'round';
   for (const flake of snowfallParticles) {
-    flake.phase += .012;
-    flake.x += flake.drift + Math.sin(flake.phase) * .22;
-    flake.y += flake.speed;
-    flake.rotation += flake.rotationSpeed;
-    if (flake.y > height + 12) { flake.y = -12; flake.x = Math.random() * width; }
-    if (flake.x < -12) flake.x = width + 12;
-    if (flake.x > width + 12) flake.x = -12;
+    flake.phase += .012 * step;
+    flake.x += (flake.drift + Math.sin(flake.phase) * .16) * step;
+    flake.y += flake.speed * step;
+    flake.rotation += flake.rotationSpeed * step;
+    if (flake.y > height + 10) { flake.y = -10; flake.x = Math.random() * width; }
+    if (flake.x < -10) flake.x = width + 10;
+    if (flake.x > width + 10) flake.x = -10;
+    const arm = flake.size;
     ctx.save();
     ctx.translate(flake.x, flake.y);
     ctx.rotate(flake.rotation);
     ctx.globalAlpha = flake.opacity;
-    ctx.font = (flake.size) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(flake.emoji, 0, 0);
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const angle = i * Math.PI / 3;
+      const dx = Math.cos(angle) * arm, dy = Math.sin(angle) * arm;
+      ctx.moveTo(-dx, -dy); ctx.lineTo(dx, dy);
+      for (const side of [-1, 1]) {
+        const bx = Math.cos(angle) * arm * .58, by = Math.sin(angle) * arm * .58;
+        const branch = arm * .32, branchAngle = angle + side * .78;
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx - Math.cos(branchAngle) * branch, by - Math.sin(branchAngle) * branch);
+        ctx.moveTo(-bx, -by);
+        ctx.lineTo(-bx + Math.cos(branchAngle) * branch, -by + Math.sin(branchAngle) * branch);
+      }
+    }
+    ctx.stroke();
     ctx.restore();
   }
   snowfallFrame = requestAnimationFrame(drawSnowfall);
@@ -165,8 +189,8 @@ function applySnowfall() {
     window.addEventListener('resize', resizeSnowfall, { passive: true });
   }
   snowfallCanvas.hidden = !config.snowfall;
-  if (config.snowfall && !snowfallFrame) snowfallFrame = requestAnimationFrame(drawSnowfall);
-  if (!config.snowfall && snowfallFrame) { cancelAnimationFrame(snowfallFrame); snowfallFrame = 0; snowfallContext?.clearRect(0, 0, window.innerWidth, window.innerHeight); }
+  if (config.snowfall && !snowfallFrame) { snowfallLastTime = 0; snowfallFrame = requestAnimationFrame(drawSnowfall); }
+  if (!config.snowfall && snowfallFrame) { cancelAnimationFrame(snowfallFrame); snowfallFrame = 0; snowfallLastTime = 0; snowfallContext?.clearRect(0, 0, window.innerWidth, window.innerHeight); }
 }
 function formatNewsText(value) {
   const source = String(value ?? '').replace(/\\\r?\n/g, '\n').replace(/\\n/g, '\n');
@@ -189,12 +213,13 @@ function formatNewsText(value) {
   html += escapeText(source.slice(last));
   return html;
 }
-function renderNews(news, featured = false) {
+function renderNews(news, featured = false, compact = false) {
   if (!news.length) return "<article class='news newsEmpty'><div class='newsIcon'>✦</div><div class='newsText'><span class='tag'>НОВОСТИ</span><h3>Пока нет новостей</h3><p>Новости сообщества появятся здесь после загрузки.</p></div></article>";
   return news.map((item, index) => {
     const isFeatured = featured && index === 0;
-    const content = (item.image ? "<div class='newsCover'><img alt='' src='" + safe(item.image) + "'></div>" : '') +
-      "<div class='newsText'><span class='tag'>" + safe(item.tag || 'НОВОСТЬ') + ' · ' + safe(item.date || '') + "</span><h3>" + safe(item.title) + "</h3><div class='newsBody'>" + formatNewsText(item.text) + "</div>" +
+    const image = item.image ? "<div class='newsCover'><img alt='' src='" + safe(item.image) + "'></div>" : '';
+    if (compact) return "<article class='newsCard newsHomeCard' role='button' tabindex='0' data-home-news-index='" + index + "'>" + image + "<div class='newsText'><h3>" + safe(item.title || 'Новость') + "</h3></div></article>";
+    const content = image + "<div class='newsText'><span class='tag'>" + safe(item.tag || 'НОВОСТЬ') + ' · ' + safe(item.date || '') + "</span><h3>" + safe(item.title) + "</h3><div class='newsBody'>" + formatNewsText(item.text) + "</div>" +
       (item.url && /^https:\/\/(vk\.ru|vk\.com)\//i.test(item.url) ? "<span class='newsReadMore'>Открыть публикацию ↗</span>" : '') + "</div>";
     const classes = "newsCard" + (isFeatured ? " newsFeatured" : "");
     return item.url && /^https:\/\/(vk\.ru|vk\.com)\//i.test(item.url)
@@ -250,7 +275,7 @@ function renderProfiles() {
   byId('openAddProfile')?.addEventListener('click', () => { menu.hidden = true; navigate('profileview'); showAccountChoices(); });
 }
 function showAccountChoices() { byId('offlineForm').hidden = true; byId('elybyNotice').hidden = true; document.querySelector('.accountChoices').hidden = false; }
-function renderPlayButton() { const b = byId('playButton'); b.textContent = gameBusy ? 'Подготовка…' : (launcherUpdateAvailable || gameUpdateAvailable) ? 'Обновить' : gameInstalled ? 'Играть' : 'Установить'; b.disabled = gameBusy; }
+function renderPlayButton() { const b = byId('playButton'); b.textContent = gameRunning ? 'Игра запущена' : gameBusy ? 'Подготовка…' : (launcherUpdateAvailable || gameUpdateAvailable) ? 'Обновить' : gameInstalled ? 'Играть' : 'Установить'; b.disabled = gameBusy || gameRunning; }
 const originalTextNodes = new WeakMap();
 const englishText = {
   'МЕНЮ':'MENU','Главная':'Home','Новости':'News','Карта сервера':'Server map','Поддержка':'Support','Сервер':'Server','Настройки':'Settings','Профиль':'Profile','Обновления':'Updates','О лаунчере':'About',
@@ -284,22 +309,50 @@ function applyLanguage() {
   byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
   byId('closeWindow').title = english ? 'Close' : 'Закрыть';
 }
-function render() { document.title = 'MaoLauncher'; byId('homeNews').innerHTML = renderNews((config.news || []).slice(0, 3), true); byId('allNews').innerHTML = renderNews(config.news || []); const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
-async function refreshState() { try { gameInstalled = Boolean((await window.launcher.gameState()).installed); } catch { gameInstalled = false; } renderPlayButton(); }
-function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
+function render() { document.title = 'MaoLauncher'; const serverNews = newsCategory === 'server'; const homeNewsTitle = byId('homeNewsTitle'); if (homeNewsTitle) homeNewsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; byId('homeNews').innerHTML = serverNews ? renderNews((config.news || []).slice(0, 3), true, true) : renderNews([]); byId('allNews').innerHTML = serverNews ? renderNews(config.news || []) : renderNews([]); document.querySelectorAll('[data-news-category]').forEach(button => button.classList.toggle('active', button.dataset.newsCategory === newsCategory)); const newsTitle = byId('newsPageTitle'); if (newsTitle) newsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; const newsSubtitle = byId('newsPageSubtitle'); if (newsSubtitle) newsSubtitle.textContent = serverNews ? 'Объявления сообщества' : 'Обновления и объявления MaoLauncher'; const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; if (byId('launchArgumentsSetting')) byId('launchArgumentsSetting').value = config.launchArguments || '';  document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
+async function refreshState() { try { const state = await window.launcher.gameState(); gameInstalled = Boolean(state.installed); gameRunning = Boolean(state.running); } catch { gameInstalled = false; gameRunning = false; } renderPlayButton(); }
+function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; if (byId('ping')) byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
+let serverCheckPromise = null;
 async function checkServer() {
+  if (serverCheckPromise) return serverCheckPromise;
+  serverCheckPromise = (async () => {
   byId('serverStatus').textContent = 'Проверяем сервер…'; byId('serverError').textContent = '';
   try {
     const r = await window.launcher.serverStatus();
     if (!r.online) return setUnavailable(r.dnsError || r.error || 'Нет ответа', 'Не в сети');
     const count = r.players.online + ' / ' + r.players.max, ping = Number.isFinite(r.ping) ? r.ping + ' мс' : '— мс';
     byId('gameVersion').textContent = r.version || '—';
-    byId('serverStatus').textContent = 'Сервер онлайн'; byId('players').textContent = count; byId('ping').textContent = ping; byId('topStatus').textContent = 'ОНЛАЙН'; byId('topStatus').className = 'pill good'; byId('sideStatus').textContent = 'Состояние сервера';
+    byId('serverStatus').textContent = 'Сервер онлайн'; byId('players').textContent = count; if (byId('ping')) byId('ping').textContent = ping; byId('topStatus').textContent = 'ОНЛАЙН'; byId('topStatus').className = 'pill good'; byId('sideStatus').textContent = ''; if (byId('serverAddressDetail')) byId('serverAddressDetail').textContent = r.address || 'm30.joinserver.xyz:25737';
     byId('serverStatusDetail').textContent = 'Сервер онлайн'; byId('playersDetail').textContent = count; byId('pingDetail').textContent = ping; byId('serverVersionDetail').textContent = r.version || 'Неизвестно';
     const sample = r.players.sample || []; byId('avatars').innerHTML = sample.slice(0, 5).map(p => "<img class='avatar' title='" + safe(p.name) + "' alt='Скин игрока' src='https://mc-heads.net/avatar/" + encodeURIComponent(p.uuid || p.name) + "/30'>").join('') + (r.players.online > 5 ? '<span class=more>+' + (r.players.online - 5) + '</span>' : '');
   } catch (e) { setUnavailable(e.message); }
+  })();
+  try { return await serverCheckPromise; } finally { serverCheckPromise = null; }
 }
 configureNavigation();
+const newsDetailOverlay = document.createElement('div');
+newsDetailOverlay.className = 'newsDetailOverlay';
+newsDetailOverlay.id = 'newsDetailOverlay';
+newsDetailOverlay.innerHTML = "<div class='newsDetailDialog' role='dialog' aria-modal='true' aria-label='Новость'><button class='newsDetailClose' type='button' aria-label='Закрыть'>×</button><div class='newsDetailContent'></div></div>";
+document.body.append(newsDetailOverlay);
+function openHomeNews(index) {
+  const item = config.news[index];
+  if (!item) return;
+  newsDetailOverlay.querySelector('.newsDetailContent').innerHTML = renderNews([item]);
+  newsDetailOverlay.classList.add('open');
+}
+byId('homeNews')?.addEventListener('click', event => {
+  const card = event.target.closest('[data-home-news-index]');
+  if (card) openHomeNews(Number(card.dataset.homeNewsIndex));
+});
+byId('homeNews')?.addEventListener('keydown', event => {
+  if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[data-home-news-index]')) {
+    event.preventDefault(); openHomeNews(Number(event.target.dataset.homeNewsIndex));
+  }
+});
+newsDetailOverlay.querySelector('.newsDetailClose').addEventListener('click', () => newsDetailOverlay.classList.remove('open'));
+newsDetailOverlay.addEventListener('click', event => { if (event.target === newsDetailOverlay) newsDetailOverlay.classList.remove('open'); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') newsDetailOverlay.classList.remove('open'); });
 const sidebarToggle = byId('sidebarToggle');
 sidebarToggle?.addEventListener('click', async () => { const expanded = !document.body.classList.contains('sidebar-expanded'); document.body.classList.toggle('sidebar-expanded', expanded); sidebarToggle.setAttribute('aria-expanded', String(expanded)); sidebarToggle.setAttribute('aria-label', expanded ? 'Свернуть меню' : 'Развернуть меню'); sidebarToggle.title = expanded ? 'Свернуть меню' : 'Развернуть меню'; sidebarToggle.textContent = expanded ? '‹' : '☰'; try { await window.launcher.setSidebarExpanded(expanded); } catch (error) { notify(error.message, true); } });
 const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }, { name: 'tomskiybtw', url: 'https://www.twitch.tv/tomskiybtw' }];
@@ -400,8 +453,9 @@ async function refreshTwitchStreams() {
 }
 byId('refreshTwitchStreams')?.addEventListener('click', refreshTwitchStreams);
 function navigate(id) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id)); document.querySelectorAll('[data-view]').forEach(v => v.classList.toggle('active', v.dataset.view === id)); byId('crumb').textContent = ({ home: 'Главная', serverview: 'Сервер', newsview: 'Новости', settingsview: 'Настройки', profileview: 'Профиль', mapview: 'Карта сервера', streamsview: 'Стримы', supportview: 'Поддержка', updatesview: 'Обновления', aboutview: 'О лаунчере' })[id] || 'Главная'; if (id === 'streamsview') refreshTwitchStreams(); }
+document.querySelectorAll('[data-news-category]').forEach(button => button.addEventListener('click', () => { newsCategory = button.dataset.newsCategory; render(); }));
 document.querySelectorAll('[data-view],[data-go]').forEach(b => b.addEventListener('click', () => { if (b.dataset.view === 'profileview') return; navigate(b.dataset.view || b.dataset.go); }));
-byId('playButton').addEventListener('click', async () => { if (launcherUpdateAvailable) { gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressBar').style.width = '2%'; byId('progressText').textContent = 'Подготовка обновления…'; try { const result = await window.launcher.installLauncherUpdate(); if (result.upToDate) { launcherUpdateAvailable = false; gameBusy = false; renderPlayButton(); notify('Установлена последняя версия MaoLauncher.'); } } catch (error) { notify(error.message, true); gameBusy = false; renderPlayButton(); } return; } if (!config.activeProfile) { navigate('profileview'); document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; requestAnimationFrame(() => byId('profileName').focus()); notify('Введите ник, чтобы создать офлайн-профиль.', true); return; } gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressText').textContent = 'Подготовка Fabric 26.2…'; try { const r = await window.launcher.installGame(); gameInstalled = true; gameUpdateAvailable = false; byId('progressWrap').hidden = true; byId('progressText').textContent = ''; notify(r.started ? 'Игра запущена на mc.maopickme.ru.' : 'Игра установлена.'); } catch (e) { notify(e.message, true); await refreshState(); } finally { gameBusy = false; renderPlayButton(); } });
+byId('playButton').addEventListener('click', async () => { if (gameRunning) return; if (launcherUpdateAvailable) { gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressBar').style.width = '2%'; byId('progressText').textContent = 'Подготовка обновления…'; try { const result = await window.launcher.installLauncherUpdate(); if (result.upToDate) { launcherUpdateAvailable = false; gameBusy = false; renderPlayButton(); notify('Установлена последняя версия MaoLauncher.'); } } catch (error) { notify(error.message, true); gameBusy = false; renderPlayButton(); } return; } if (!config.activeProfile) { navigate('profileview'); document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; requestAnimationFrame(() => byId('profileName').focus()); notify('Введите ник, чтобы создать офлайн-профиль.', true); return; } gameBusy = true; renderPlayButton(); byId('progressWrap').hidden = false; byId('progressText').textContent = 'Подготовка Fabric 26.2…'; try { const r = await window.launcher.installGame(); gameInstalled = true; gameUpdateAvailable = false; byId('progressWrap').hidden = true; byId('progressText').textContent = ''; notify(r.started ? 'Игра запущена на mc.maopickme.ru.' : 'Игра установлена.'); } catch (e) { notify(e.message, true); await refreshState(); } finally { gameBusy = false; renderPlayButton(); } });
 byId('offlineChoice').addEventListener('click', () => { document.querySelector('.accountChoices').hidden = true; byId('offlineForm').hidden = false; const field = byId('profileName'); field.disabled = false; field.readOnly = false; requestAnimationFrame(() => field.focus()); });
 byId('elybyChoice').addEventListener('click', () => { document.querySelector('.accountChoices').hidden = true; byId('elybyNotice').hidden = false; });
 byId('backToAccountChoices').addEventListener('click', showAccountChoices);
@@ -430,12 +484,52 @@ for (const [id, key] of [['themeSetting', 'theme'], ['languageSetting', 'languag
     notify('Не удалось сохранить настройку: ' + error.message, true);
   }
 });
+byId('launchArgumentsSetting')?.addEventListener('change', async event => { const previous = config; try { config = await window.launcher.saveSettings({ ...config, launchArguments: event.target.value.trim() }); notify('Аргументы запуска сохранены.'); } catch (error) { config = previous; render(); notify('Не удалось сохранить аргументы: ' + error.message, true); } });
 byId('openFolder').addEventListener('click', async () => { const error = await window.launcher.openGameFolder(); if (error) notify(error, true); });
-async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); const versionLabel = byId('launcherVersionLabel'); if (versionLabel && r.launcherVersion) versionLabel.textContent = 'MaoLauncher v' + r.launcherVersion; gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); if (hint) hint.textContent = launcherUpdateAvailable ? 'Доступна новая версия MaoLauncher ' + r.latestLauncherVersion + '. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'MaoLauncher и установленные моды обновлены до последних версий.'; if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
+async function checkUpdates(hintId = 'updateHint', silent = false) { const hint = byId(hintId); if (hint) hint.textContent = 'Проверяем обновления MaoLauncher и модов…'; try { const r = await window.launcher.checkUpdates(); launcherUpdateAvailable = Boolean(r.launcherUpdate); gameUpdateAvailable = r.modUpdates.length > 0; renderPlayButton(); const latestVersion = r.latestLauncherVersion ? 'MaoLauncher v' + r.latestLauncherVersion + '. ' : ''; if (hint) hint.textContent = latestVersion + (launcherUpdateAvailable ? 'Доступна новая версия. Нажмите «Обновить» на главной.' : gameUpdateAvailable ? 'Доступны обновления модов: ' + r.modUpdates.join(', ') + '. Нажмите «Обновить» на главной.' : 'Установленные моды обновлены до последних версий.'); if (!silent) notify(launcherUpdateAvailable ? 'Доступно обновление MaoLauncher ' + r.latestLauncherVersion + '.' : 'Проверка завершена.'); } catch (err) { if (hint) hint.textContent = err.message; if (!silent) notify(err.message, true); } }
+async function sendSupportRequest() {
+  const subject = byId('supportSubject').value.trim();
+  const message = byId('supportMessage').value.trim();
+  const button = byId('supportSend');
+  const hint = byId('supportFormHint');
+  if (!subject || !message) { showSupportNotice('Заполни заголовок и сообщение.', true); return; }
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = 'Отправляем…';
+  if (hint) hint.textContent = 'Отправляем обращение…';
+  try {
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: 'service_mdy3gqa',
+        template_id: 'template_i52qgrl',
+        user_id: 'IpDZGs1n3Af92cMem',
+        template_params: { subject, message, title: subject, content: message }
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) {
+      const details = (await response.text()).slice(0, 300);
+      throw new Error(details || 'EmailJS вернул HTTP ' + response.status);
+    }
+    byId('supportSubject').value = '';
+    byId('supportMessage').value = '';
+    if (hint) hint.textContent = 'Обращение успешно отправлено.';
+    showSupportNotice('Обращение успешно отправлено. Спасибо!');
+  } catch (error) {
+    if (hint) hint.textContent = 'Не удалось отправить обращение. Попробуйте ещё раз.';
+    showSupportNotice('Не удалось отправить обращение. Попробуйте ещё раз.', true);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Отправить';
+  }
+}
+byId('supportSend')?.addEventListener('click', sendSupportRequest);
 byId('checkUpdates')?.addEventListener('click', () => checkUpdates());
 byId('minimizeWindow').addEventListener('click', () => window.launcher.windowAction('minimize')); byId('closeWindow').addEventListener('click', () => window.launcher.windowAction('close'));
 window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = false; byId('progressBar').style.width = Math.max(2, d.current || 2) + '%'; byId('progressText').textContent = d.label || 'Обновление MaoLauncher…'; });
 window.launcher.onProgress(d => { byId('progressWrap').hidden = false; const pct = d.total ? Math.max(3, Math.min(100, Math.round(d.current / d.total * 100))) : 6; byId('progressBar').style.width = pct + '%'; byId('progressText').textContent = (d.label || 'Загрузка') + (d.total ? ' · ' + d.current + '/' + d.total : ''); });
-window.launcher.onGameStarted(d => notify('Minecraft запущен: ' + d.profile)); window.launcher.onGameClosed(d => { if (d.code) notify('Игра завершилась с кодом ' + d.code, true); }); window.launcher.onGameLog(line => { byId('progressText').textContent = line; });
+window.launcher.onGameStarted(d => { gameRunning = true; renderPlayButton(); notify('Minecraft запущен: ' + d.profile); }); window.launcher.onGameClosed(d => { gameRunning = false; renderPlayButton(); if (d.code) notify('Игра завершилась с кодом ' + d.code, true); }); window.launcher.onGameLog(line => { byId('progressText').textContent = line; });
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (config.theme === 'auto') render(); });
-(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); try { const version = await window.launcher.getLauncherVersion(); byId('launcherVersionLabel').textContent = 'MaoLauncher v' + version; } catch {} await refreshState(); checkServer(); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); setInterval(() => { if (byId('streamsview')?.classList.contains('active')) refreshTwitchStreams(); }, 180000); })();
+(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); await refreshState(); checkServer(); setInterval(checkServer, 7000); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); setInterval(() => { if (byId('streamsview')?.classList.contains('active')) refreshTwitchStreams(); }, 180000); })();

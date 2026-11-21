@@ -12,9 +12,8 @@ const execFileAsync = promisify(execFile);
 
 const GAME_VERSION = '26.2';
 const SERVER = 'mc.maopickme.ru';
-const STATUS_HOST = '135.181.126.154';
 const STATUS_PORT = 25737;
-const STATUS_ADDRESS = `${STATUS_HOST}:${STATUS_PORT}`;
+const STATUS_SERVERS = ['m30.joinserver.xyz', '135.181.126.154'];
 const NEWS_FEED_URL = 'https://hm572194.webhm.cloud/api/news.php';
 const LAUNCHER_VERSION = app.getVersion();
 const PROJECTS = [
@@ -24,7 +23,7 @@ const PROJECTS = [
   ['player-animation-library', 'Player Animation Library'], ['sodium', 'Sodium'], ['iris', 'Iris'],
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
-const DEFAULTS = { memory: 4096, theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', installManifest: '' };
+const DEFAULTS = { memory: 4096, launchArguments: '', theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', installManifest: '' };
 let mainWindow;
 let localServer;
 let localServerPort;
@@ -33,10 +32,23 @@ let quitting = false;
 let settingsPath;
 let gameRoot;
 let installPromise;
+let gameRunning = false;
 let newsCache = [];
 let newsCacheAt = 0;
 let newsRequest = null;
 
+function parseLaunchArguments(value) {
+  const source = String(value || '').trim();
+  const args = [];
+  const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|([^\s]+)/g;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const arg = match[1] ?? match[2] ?? match[3];
+    if (arg && !/[\u0000-\u001f]/.test(arg)) args.push(arg);
+    if (args.length >= 40) break;
+  }
+  return args;
+}
 function readSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsPath, 'utf8')) }; }
   catch { return { ...DEFAULTS }; }
@@ -48,6 +60,7 @@ function saveSettings(value) {
   clean.language = ['ru', 'en'].includes(clean.language) ? clean.language : 'ru';
   clean.minimizeBehavior = ['tray', 'taskbar'].includes(clean.minimizeBehavior) ? clean.minimizeBehavior : 'tray';
   clean.snowfall = clean.snowfall !== false;
+  clean.launchArguments = String(clean.launchArguments || '').slice(0, 1000);
   clean.profiles = Array.isArray(clean.profiles) ? clean.profiles.filter(p => p && /^[A-Za-z0-9_]{3,16}$/.test(p.name) && /^[0-9a-f-]{36}$/i.test(p.uuid)).map(p => ({ ...p, type: 'offline' })).slice(0, 20) : [];
   if (!clean.profiles.some(p => p.name === clean.activeProfile)) clean.activeProfile = clean.profiles[0]?.name || '';
   fs.writeFileSync(settingsPath, JSON.stringify(clean, null, 2));
@@ -169,9 +182,9 @@ function readVarInt(buffer, offset = 0) {
   do { if (position >= buffer.length || position - offset > 5) throw new Error('Некорректный пакет статуса.'); byte = buffer[position++]; value |= (byte & 0x7f) << ((position - offset - 1) * 7); } while (byte & 0x80);
   return { value, next: position };
 }
-async function directServerStatus() {
-  const host = STATUS_HOST, port = STATUS_PORT;
-  const addressBytes = Buffer.from(host, 'utf8');
+async function directServerStatus(host) {
+  const port = STATUS_PORT;
+  const addressBytes = Buffer.from('m30.joinserver.xyz', 'utf8');
   const handshakeData = Buffer.concat([varInt(767), varInt(addressBytes.length), addressBytes, Buffer.from([port >> 8, port & 255]), varInt(1)]);
   const handshake = Buffer.concat([varInt(handshakeData.length + 1), Buffer.from([0]), handshakeData]);
   const packet = Buffer.concat([handshake, Buffer.from([1, 0])]);
@@ -201,67 +214,10 @@ async function directServerStatus() {
     });
     socket.on('error', error => { clearTimeout(timer); reject(error); });
   });
-  return { online: true, players: response.players || {}, version: response.version?.name || GAME_VERSION, ping: Math.round(performance.now() - started), sample: response.players?.sample || [], motd: response.description?.text || '' };
+  return { online: true, players: { online: Number(response.players?.online) || 0, max: Number(response.players?.max) || 0, sample: response.players?.sample || [] }, version: response.version?.name || GAME_VERSION, ping: Math.round(performance.now() - started), sample: response.players?.sample || [], motd: response.description?.text || '' };
 }
-async function measureServerPing() {
-  return new Promise((resolve, reject) => {
-    const started = performance.now();
-    const socket = net.createConnection({ host: STATUS_HOST, port: STATUS_PORT });
-    const timer = setTimeout(() => socket.destroy(new Error('Тайм-аут проверки пинга.')), 4000);
-    socket.once('connect', () => {
-      clearTimeout(timer);
-      resolve(Math.round(performance.now() - started));
-      socket.end();
-    });
-    socket.once('error', error => { clearTimeout(timer); reject(error); });
-  });
-}
-let hostedStatusCache = null;
-let hostedStatusUpdatedAt = 0;
-let hostedStatusPromise = null;
-async function hostedServerStatus() {
-  if (hostedStatusCache && Date.now() - hostedStatusUpdatedAt < 60_000) return hostedStatusCache;
-  if (hostedStatusPromise) return hostedStatusPromise;
-  hostedStatusPromise = (async () => {
-    const url = 'https://minecraft-hosting.net/resolve';
-    const initial = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!initial.ok) throw new Error(`Minecraft-Hosting вернул HTTP ${initial.status}.`);
-    const html = await initial.text();
-    const token = html.match(/name="_token" value="([^"]+)"/)?.[1];
-    if (!token) throw new Error('Не удалось прочитать форму статуса Minecraft-Hosting.');
-    const cookies = initial.headers.getSetCookie().map(cookie => cookie.split(';')[0]).join('; ');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookies, origin: 'https://minecraft-hosting.net', referer: url },
-      body: new URLSearchParams({ _token: token, server_type: 'java', server_address: STATUS_ADDRESS }),
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error(`Проверка сервера: HTTP ${response.status}.`);
-    const result = await response.text();
-    const online = /server-status-card server-online/.test(result);
-    const field = label => {
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = result.match(new RegExp(`<span class="info-label">${escaped}:<\\/span>\\s*<span class="info-value">([\\s\\S]*?)<\\/span>`));
-      return match?.[1]?.replace(/<[^>]*>/g, '').trim() || '';
-    };
-    const [playersOnline, playersMax] = field('Игроки').split('/').map(value => Number(value.trim()));
-    if (!field('Версия') || !Number.isFinite(playersOnline) || !Number.isFinite(playersMax)) {
-      if (!/server-status-card server-offline/.test(result)) throw new Error('Формат ответа Minecraft-Hosting изменился.');
-    }
-    const value = {
-      online,
-      players: { online: Number.isFinite(playersOnline) ? playersOnline : 0, max: Number.isFinite(playersMax) ? playersMax : 0 },
-      version: field('Версия') || GAME_VERSION,
-      ping: null, sample: [], motd: '', source: 'minecraft-hosting.net'
-    };
-    hostedStatusCache = value;
-    hostedStatusUpdatedAt = Date.now();
-    return value;
-  })();
-  try { return await hostedStatusPromise; } finally { hostedStatusPromise = null; }
-}
-async function publicServerStats() {
-  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(SERVER), { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+async function publicServerStats(address) {
+  const response = await fetch('https://api.mcsrvstat.us/3/' + encodeURIComponent(`${address}:${STATUS_PORT}`), { cache: 'no-store', signal: AbortSignal.timeout(7000) });
   if (!response.ok) throw new Error('Сервис статистики вернул HTTP ' + response.status + '.');
   const data = await response.json();
   if (typeof data.online !== 'boolean') throw new Error('Сервис статистики вернул неполные данные.');
@@ -278,11 +234,19 @@ async function publicServerStats() {
   };
 }
 async function serverStatus() {
-  const [publicStats, direct, hosted, ping] = await Promise.allSettled([publicServerStats(), directServerStatus(), hostedServerStatus(), measureServerPing()]);
-  if (publicStats.status === 'fulfilled') return { ...publicStats.value, ping: ping.status === 'fulfilled' ? ping.value : publicStats.value.ping };
-  if (direct.status === 'fulfilled') return { ...direct.value, ping: ping.status === 'fulfilled' ? ping.value : direct.value.ping };
-  if (hosted.status === 'fulfilled') return { ...hosted.value, ping: ping.status === 'fulfilled' ? ping.value : null };
-  throw new Error(publicStats.reason?.message || direct.reason?.message || hosted.reason?.message || 'Сервер недоступен.');
+  const directResults = await Promise.allSettled(STATUS_SERVERS.map(host => directServerStatus(host)));
+  for (let index = 0; index < directResults.length; index++) {
+    const result = directResults[index];
+    if (result.status === 'fulfilled') return { ...result.value, address: STATUS_SERVERS[index] + ':' + STATUS_PORT };
+  }
+  const publicResults = await Promise.allSettled(STATUS_SERVERS.map(host => publicServerStats(host)));
+  const errors = [];
+  for (let index = 0; index < publicResults.length; index++) {
+    const result = publicResults[index];
+    if (result.status === 'fulfilled' && result.value.online) return { ...result.value, address: STATUS_SERVERS[index] + ':' + STATUS_PORT };
+    errors.push(result.status === 'rejected' ? STATUS_SERVERS[index] + ': ' + (result.reason && result.reason.message || 'ошибка запроса') : STATUS_SERVERS[index] + ': сервер офлайн');
+  }
+  throw new Error('Оба адреса сервера не ответили. ' + errors.join(' · '));
 }
 async function ensureJava() {
   if (process.platform !== 'win32') return 'java';
@@ -355,6 +319,20 @@ async function installMods(previousFiles = []) {
   }
   return { mods, files };
 }
+
+function installMaoPresenceMod() {
+  const filename = 'mao-presence-fabric-1.0.0.jar';
+  const source = app.isPackaged
+    ? path.join(process.resourcesPath, 'mods', filename)
+    : path.join(__dirname, 'assets', 'mods', filename);
+  if (!fs.existsSync(source)) {
+    emit('game:log', 'MaoPresence mod is not bundled; the tab marker will be unavailable.');
+    return null;
+  }
+  const destination = path.join(gameRoot, 'mods', filename);
+  fs.copyFileSync(source, destination);
+  return filename;
+}
 async function installFabricProfile() {
   const loaders = await api(`https://meta.fabricmc.net/v2/versions/loader/${GAME_VERSION}`);
   const loader = loaders.find(item => item.loader?.stable) || loaders[0];
@@ -375,6 +353,8 @@ async function runMinecraft() {
     const { profile, loader } = await installFabricProfile();
     let previous = {}; try { previous = JSON.parse(settings.installManifest); } catch {}
     const { mods: modVersions, files: modFiles } = await installMods(previous.files || []);
+    const presenceModFile = installMaoPresenceMod();
+    if (presenceModFile) modFiles.push(presenceModFile);
     const baseManifest = await api('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
     const gameEntry = baseManifest.versions.find(item => item.id === GAME_VERSION);
     if (!gameEntry) throw new Error(`Minecraft ${GAME_VERSION} отсутствует в официальном манифесте.`);
@@ -389,23 +369,34 @@ async function runMinecraft() {
     const launcher = new Client();
     launcher.on('progress', progress => emit('install:progress', { stage: progress.type || 'minecraft', current: progress.task || 0, total: progress.total || 0, label: 'Загрузка игровых файлов' }));
     launcher.on('debug', line => { if (/failed|error/i.test(line)) emit('game:log', String(line).slice(-300)); });
-    launcher.on('close', code => { setDiscordGameState(false); emit('game:closed', { code }); });
+    launcher.on('close', code => { gameRunning = false; setDiscordGameState(false); emit('game:closed', { code }); });
     const javaPath = await ensureJava();
     const token = selected.uuid.replaceAll('-', '');
     const auth = { access_token: token, client_token: token, uuid: token, name: selected.name, user_properties: '{}', meta: { type: 'legacy' } };
-    const process = await launcher.launch({
-      authorization: auth, root: gameRoot, cache: path.join(gameRoot, 'cache'),
-      version: { number: GAME_VERSION, type: 'release', custom: profile.id },
-      memory: { max: `${settings.memory}M`, min: '1024M' },
-      javaPath,
-      overrides: { versionJson: baseJsonPath, detached: true },
-      quickPlay: { type: 'legacy', identifier: SERVER }
-    });
-    if (!process) throw new Error('Не удалось запустить игру. Проверьте Java 25 и журнал лаунчера.');
+    const presenceToken = crypto.randomBytes(32).toString('hex');
+    const previousJavaToolOptions = process.env.JAVA_TOOL_OPTIONS;
+    process.env.JAVA_TOOL_OPTIONS = [previousJavaToolOptions, `-Dmao.presence.token=${presenceToken}`].filter(Boolean).join(' ');
+    let launchedProcess;
+    try {
+      launchedProcess = await launcher.launch({
+        authorization: auth, root: gameRoot, cache: path.join(gameRoot, 'cache'),
+        version: { number: GAME_VERSION, type: 'release', custom: profile.id },
+        memory: { max: `${settings.memory}M`, min: '1024M' },
+        customArgs: parseLaunchArguments(settings.launchArguments),
+        javaPath,
+        overrides: { versionJson: baseJsonPath, detached: true },
+        quickPlay: { type: 'legacy', identifier: SERVER }
+      });
+    } finally {
+      if (previousJavaToolOptions === undefined) delete process.env.JAVA_TOOL_OPTIONS;
+      else process.env.JAVA_TOOL_OPTIONS = previousJavaToolOptions;
+    }
+    if (!launchedProcess) throw new Error('Не удалось запустить игру. Проверьте Java 25 и журнал лаунчера.');
     saveSettings({ ...settings, installManifest: JSON.stringify({ game: GAME_VERSION, loader, profile: profile.id, mods: modVersions.map(mod => `${mod.id}:${mod.version.id}`), files: modFiles }) });
+    gameRunning = true;
     setDiscordGameState(true);
-    emit('game:started', { pid: process.pid, profile: selected.name });
-    return { started: true, pid: process.pid, loader, modCount: modVersions.length };
+    emit('game:started', { pid: launchedProcess.pid, profile: selected.name });
+    return { started: true, pid: launchedProcess.pid, loader, modCount: modVersions.length + (presenceModFile ? 1 : 0) };
   })();
   try { return await installPromise; } finally { installPromise = null; }
 }
@@ -610,7 +601,7 @@ app.whenReady().then(async () => {
     if (settings.activeProfile === name) settings.activeProfile = settings.profiles[0]?.name || '';
     return saveSettings(settings);
   });
-  ipcMain.handle('game:state', () => { const settings = readSettings(); let manifest = {}; try { manifest = JSON.parse(settings.installManifest); } catch {} const versionPath = manifest.profile && path.join(gameRoot, 'versions', manifest.profile, `${manifest.profile}.json`); const installed = Boolean(versionPath && fs.existsSync(versionPath) && fs.existsSync(path.join(gameRoot, 'versions', `${GAME_VERSION}.json`)) && Array.isArray(manifest.files) && manifest.files.length >= PROJECTS.length && manifest.files.every(file => fs.existsSync(path.join(gameRoot, 'mods', file)))); return { installed, root: gameRoot, busy: Boolean(installPromise) }; });
+  ipcMain.handle('game:state', () => { const settings = readSettings(); let manifest = {}; try { manifest = JSON.parse(settings.installManifest); } catch {} const versionPath = manifest.profile && path.join(gameRoot, 'versions', manifest.profile, `${manifest.profile}.json`); const installed = Boolean(versionPath && fs.existsSync(versionPath) && fs.existsSync(path.join(gameRoot, 'versions', `${GAME_VERSION}.json`)) && Array.isArray(manifest.files) && manifest.files.length >= PROJECTS.length && manifest.files.every(file => fs.existsSync(path.join(gameRoot, 'mods', file)))); return { installed, root: gameRoot, busy: Boolean(installPromise), running: gameRunning }; });
   ipcMain.handle('game:install', () => runMinecraft());
   ipcMain.handle('game:open-folder', () => { fs.mkdirSync(gameRoot, { recursive: true }); return shell.openPath(gameRoot); });
   ipcMain.handle('update:check', async () => {

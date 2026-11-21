@@ -217,7 +217,7 @@ internal sealed class SetupForm : Form
     {
         try
         {
-            using var stream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-banner.png");
+            using var stream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.background_main.jpg");
             if (stream is null) return null;
             using var image = Image.FromStream(stream);
             return new Bitmap(image);
