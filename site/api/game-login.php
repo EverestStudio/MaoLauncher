@@ -35,22 +35,9 @@ try {
     }
     if (!$user['email_verified_at']) respond(['ok'=>false,'error'=>'email_not_verified'],403);
 
-    // Store the linked game profile only after the account credentials are proven.
-    $pdo = db();
-    $pdo->beginTransaction();
-    $check = $pdo->prepare('SELECT user_id FROM mao_minecraft_profiles WHERE minecraft_uuid=? LIMIT 1 FOR UPDATE');
-    $check->execute([$uuid]);
-    $existing = $check->fetch();
-    if ($existing && (int)$existing['user_id'] !== (int)$user['id']) {
-        $pdo->rollBack();
-        respond(['ok'=>false,'error'=>'minecraft_profile_already_linked'],409);
-    }
-    if ($existing) {
-        $pdo->prepare('UPDATE mao_minecraft_profiles SET minecraft_name=? WHERE minecraft_uuid=?')->execute([$mcName,$uuid]);
-    } else {
-        $pdo->prepare('INSERT INTO mao_minecraft_profiles(user_id,minecraft_uuid,minecraft_name,linked_at) VALUES(?,?,?,UTC_TIMESTAMP())')->execute([(int)$user['id'],$uuid,$mcName]);
-    }
-    $pdo->commit();
+    // Do not bind a Minecraft UUID merely because someone supplied account credentials.
+    // With online-mode=false, UUIDs are name-derived and can be impersonated. Linking
+    // must use a separate website-confirmed one-time challenge in a later API flow.
 
     $payload = ['uid'=>(int)$user['id'],'uuid'=>$uuid,'name'=>$mcName,'iat'=>time(),'exp'=>time()+90,'nonce'=>bin2hex(random_bytes(16))];
     $encoded = rtrim(strtr(base64_encode(json_encode($payload, JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
@@ -58,7 +45,6 @@ try {
     $token = $encoded . '.' . rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
     respond(['ok'=>true,'token'=>$token,'expires_in'=>90,'account'=>['username'=>$user['username']]]);
 } catch (Throwable $e) {
-    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) $pdo->rollBack();
     error_log('Mao game login error: '.$e->getMessage());
     respond(['ok'=>false,'error'=>'server_error'],500);
 }
