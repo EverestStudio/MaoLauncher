@@ -61,10 +61,14 @@ public final class MaoAuthPlugin extends JavaPlugin implements Listener {
         Player p = event.getPlayer();
         authenticated.remove(p.getUniqueId());
         p.setWalkSpeed(0f); p.setFlySpeed(0f);
-        BukkitTask task = Bukkit.getScheduler().runTaskLater(this, () -> {
+        Bukkit.getScheduler().runTaskLater(this, () -> {
             if (p.isOnline() && !authenticated.contains(p.getUniqueId())) openMenu(p);
         }, 10L);
-        timeouts.put(p.getUniqueId(), task);
+        BukkitTask timeout = Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (p.isOnline() && !authenticated.contains(p.getUniqueId()))
+                p.kickPlayer(ChatColor.RED+"Время на авторизацию MaoPickMe истекло.");
+        }, Math.max(15, getConfig().getInt("session-timeout-seconds",45))*20L);
+        timeouts.put(p.getUniqueId(), timeout);
     }
 
     @EventHandler public void onQuit(PlayerQuitEvent e) {
@@ -87,9 +91,10 @@ public final class MaoAuthPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler public void onMenuClick(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player p)) return;
+        if (locked(p)) e.setCancelled(true);
         if (!MENU_TITLE.equals(e.getView().getTitle())) return;
         e.setCancelled(true);
-        if (!(e.getWhoClicked() instanceof Player p)) return;
         if (e.getRawSlot()==11) {
             p.closeInventory(); prompts.put(p.getUniqueId(),new Prompt(Step.IDENTITY,null));
             p.sendMessage(ChatColor.LIGHT_PURPLE+"MaoPickMe "+ChatColor.GRAY+"| Введи логин или email в чат. Сообщение не будет опубликовано.");
@@ -99,7 +104,12 @@ public final class MaoAuthPlugin extends JavaPlugin implements Listener {
             p.sendMessage(ChatColor.GRAY+"После регистрации вернись и нажми «Войти».");
         }
     }
-    @EventHandler public void onDrag(InventoryDragEvent e) { if(MENU_TITLE.equals(e.getView().getTitle())) e.setCancelled(true); }
+    @EventHandler public void onDrag(InventoryDragEvent e) {
+        if (e.getWhoClicked() instanceof Player p && locked(p)) e.setCancelled(true);
+        if(MENU_TITLE.equals(e.getView().getTitle())) e.setCancelled(true);
+    }
+    @EventHandler public void onFlight(PlayerToggleFlightEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
+    @EventHandler public void onHeld(PlayerItemHeldEvent e){if(locked(e.getPlayer()))e.setCancelled(true);}
 
     @EventHandler public void onChat(AsyncPlayerChatEvent e) {
         Player p=e.getPlayer(); if(authenticated.contains(p.getUniqueId())) return;
