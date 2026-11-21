@@ -583,22 +583,32 @@ app.whenReady().then(async () => {
     const name = String(nameValue || '').trim();
     if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) return { found: false };
     const lookupHeaders = { 'Accept': 'application/json', 'User-Agent': 'MaoLauncher/' + LAUNCHER_VERSION };
-    let profileResponse = await fetch('https://api.minecraftservices.com/minecraft/profile/lookup/name/' + encodeURIComponent(name), {
-      headers: lookupHeaders,
-      signal: AbortSignal.timeout(10000)
-    });
-    // Mojang's legacy endpoint remains a fallback; it can intermittently return 403.
-    if (profileResponse.status === 403 || profileResponse.status >= 500) {
-      profileResponse = await fetch('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name), {
-        headers: lookupHeaders,
-        signal: AbortSignal.timeout(10000)
-      });
+    const lookupUrls = [
+      'https://api.minecraftservices.com/minecraft/profile/lookup/name/' + encodeURIComponent(name),
+      'https://api.mojang.com/minecraft/profile/lookup/name/' + encodeURIComponent(name),
+      'https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name)
+    ];
+    let profile = null;
+    let lastLookupError = null;
+    for (const url of lookupUrls) {
+      try {
+        const response = await fetch(url, { headers: lookupHeaders, signal: AbortSignal.timeout(10000) });
+        if (response.status === 404) continue;
+        if (!response.ok) {
+          lastLookupError = new Error('Minecraft profile API вернул HTTP ' + response.status);
+          continue;
+        }
+        const candidate = await response.json();
+        if (candidate?.id) { profile = candidate; break; }
+      } catch (error) {
+        lastLookupError = error;
+      }
     }
-    if (profileResponse.status === 404) return { found: false };
-    if (!profileResponse.ok) throw new Error('Minecraft profile API вернул HTTP ' + profileResponse.status);
-    const profile = await profileResponse.json();
-    if (!profile?.id) return { found: false };
-    const sessionResponse = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + encodeURIComponent(profile.id), {
+    if (!profile) {
+      if (lastLookupError) throw lastLookupError;
+      return { found: false };
+    }
+    const sessionResponse = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + encodeURIComponent(String(profile.id).replace(/-/g, '')) + '?unsigned=false', {
       headers: { 'Accept': 'application/json', 'User-Agent': 'MaoLauncher/' + LAUNCHER_VERSION },
       signal: AbortSignal.timeout(10000)
     });
