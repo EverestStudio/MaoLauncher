@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Правила — MaoPickMe</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#a855f7;--accent-dim:#9333ea;--accent-glow:rgba(168,85,247,.3);--card-bg:var(--card);--card-border:var(--border);--text-primary:var(--text);--text-secondary:var(--muted);--bg-secondary:var(--bg2)}
+[data-theme="dark"]{--bg:#0f0f0f;--bg2:#161618;--card:#1a1a1a;--text:#e5e5e5;--muted:#888;--border:#2a2a2a;--input-bg:#141414;--nav-bg:rgba(15,15,15,.92);--snow-color:rgba(255,255,255,.6)}
+[data-theme="light"]{--bg:#f5f3ff;--bg2:#ede9fe;--card:#ffffff;--text:#1a1a2e;--muted:#6b7280;--border:#d4d4d8;--input-bg:#f9fafb;--nav-bg:rgba(245,243,255,.92);--snow-color:rgba(168,85,247,.35)}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{min-height:100%;display:flex;flex-direction:column}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s;overflow-x:hidden;min-height:100vh}
+a{text-decoration:none;color:inherit;transition:color .2s}
+
+/* SNOWFLAKES */
+.snowflake-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden}
+.snowflake-container::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.05),transparent 60%);pointer-events:none}
+.snowflake{position:absolute;top:-12px;color:var(--snow-color);font-size:1rem;animation:snowfall linear infinite;opacity:0;will-change:transform;text-shadow:0 0 6px rgba(255,255,255,.35);user-select:none}
+.snowflake.near{filter:blur(0);opacity:.95}
+.snowflake.mid{filter:blur(.6px);opacity:.7}
+.snowflake.far{filter:blur(1.4px);opacity:.45}
+@keyframes snowfall{0%{transform:translateY(-12px) translateX(0) rotate(0deg);opacity:0}8%{opacity:var(--op,.9)}92%{opacity:var(--op,.9)}100%{transform:translateY(105vh) translateX(var(--drift)) rotate(360deg);opacity:0}}
+@keyframes snowfall-gust{0%{transform:translateY(-12px) translateX(0) rotate(0deg);opacity:0}8%{opacity:var(--op,.9)}92%{opacity:var(--op,.9)}100%{transform:translateY(105vh) translateX(calc(var(--drift) * 2.2)) rotate(420deg);opacity:0}}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:var(--nav-bg);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 2rem;height:64px;display:flex;align-items:center;justify-content:space-between;transition:background .3s,border-color .3s}
+.nav-logo{display:flex;align-items:center}
+.nav-logo img{width:38px;height:38px;object-fit:contain;display:block}
+.nav-links{display:flex;gap:1.5rem;font-size:.9rem}
+.nav-links a{color:var(--muted);font-weight:600}
+.nav-links a:hover,.nav-links a.active{color:var(--accent)}
+.nav-right{display:flex;align-items:center;gap:1rem}
+.theme-toggle{background:none;border:1px solid var(--border);border-radius:8px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;transition:border-color .2s,background .2s;color:var(--text)}
+.theme-toggle:hover{border-color:var(--accent);background:rgba(168,85,247,.08)}
+.nav-cta{background:var(--accent);color:#fff;padding:.5rem 1.2rem;border-radius:8px;font-weight:700;font-size:.85rem;transition:transform .15s,box-shadow .15s}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--accent-glow)}
+.burger{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer}
+
+/* MAIN CONTENT */
+main{position:relative;z-index:1;flex:1}
+
+/* FOOTER */
+footer{text-align:center;padding:3rem 2rem;color:var(--muted);font-size:.85rem;border-top:1px solid var(--border);position:relative;z-index:1;transition:border-color .3s}
+
+/* COMMON COMPONENTS */
+.btn{display:inline-block;padding:.85rem 2rem;border-radius:10px;font-weight:700;font-size:1rem;transition:all .2s;cursor:pointer;border:none;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{box-shadow:0 4px 24px var(--accent-glow);transform:translateY(-2px)}
+.btn-outline{border:2px solid var(--border);color:var(--text);background:transparent}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.section-title{font-size:2rem;font-weight:800;margin-bottom:2rem;display:flex;align-items:center;gap:.75rem}
+.section-title::before{content:'';width:4px;height:2rem;background:var(--accent);border-radius:2px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:2rem;transition:border-color .2s,background .3s}
+.card:hover{border-color:var(--accent)}
+
+@media(max-width:768px){
+  nav .nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:var(--nav-bg);flex-direction:column;padding:1rem 2rem;gap:.75rem;border-bottom:1px solid var(--border)}
+  nav .nav-links.open{display:flex}
+  .burger{display:block}
+  .nav-cta{display:none}
+}
+</style>
+<style>.account-link{color:var(--text);font-weight:700;font-size:.88rem;padding:.48rem .85rem;border:1px solid var(--border);border-radius:8px;white-space:nowrap}.account-link:hover{color:var(--accent);border-color:var(--accent)}@media(max-width:700px){.account-link{font-size:.8rem;padding:.4rem .6rem}}</style>
+</head>
+<body>
+
+<div class="snowflake-container" id="snowContainer"></div>
+
+<nav>
+  <a href="/" class="nav-logo"><img src="logo.png" alt="MaoPickMe"></a>
+  <div class="nav-links" id="navLinks">
+    <a href="./index.html" class="">Главная</a>
+    <a href="./rules.html" class="active">Правила</a>
+    <a href="./screenshots.html" class="">Скриншоты</a>
+    <a href="./map.html" class="">Онлайн-карта</a>
+    <a href="./mods.html" class="">Моды</a>
+  </div>
+  <div class="nav-right">
+    <a href="./account/login.html" class="account-link">Аккаунт</a>
+    <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+    <a href="./apply.html" class="nav-cta">Подать заявку</a>
+    <button class="burger" id="burgerBtn">☰</button>
+  </div>
+</nav>
+
+<main>
+<section class="page-section rules-page">
+  <div class="section-header">
+    <h2>Правила сервера</h2>
+    <p>Незнание правил не освобождает от ответственности</p>
+  </div>
+  <div class="rules-layout">
+    <nav class="rules-nav" id="rulesNav">
+      <button class="rules-nav-btn active" data-target="chat">💬 Общение</button>
+      <button class="rules-nav-btn" data-target="voice">🎙 Голосовой чат</button>
+      <button class="rules-nav-btn" data-target="rp">🎭 RP и отыгровка</button>
+      <button class="rules-nav-btn" data-target="pvp">⚔️ PvP и конфликты</button>
+      <button class="rules-nav-btn" data-target="build">🏗 Строительство</button>
+      <button class="rules-nav-btn" data-target="cheats">🚫 Читы и моды</button>
+      <button class="rules-nav-btn" data-target="admin">👑 Администрация</button>
+    </nav>
+    <div class="rules-content" id="rulesContent">
+      <div class="rules-block active" id="block-chat">
+        <h3>💬 Правила общения</h3>
+        <ul>
+          <li>Уважай всех участников сервера. Оскорбления, расизм, сексизм и дискриминация запрещены.</li>
+          <li>Запрещён спам, флуд и бессмысленные сообщения в общем чате.</li>
+          <li>Реклама сторонних серверов, каналов и ресурсов — бан без предупреждения.</li>
+          <li>Не выдавай себя за другого игрока или члена администрации.</li>
+          <li>Конфликты решай через диалог или обращение к администрации, а не через публичные разборки.</li>
+          <li>Запрещены угрозы реального насилия, доксинг и распространение личных данных.</li>
+        </ul>
+      </div>
+      <div class="rules-block" id="block-voice">
+        <h3>🎙 Голосовой чат</h3>
+        <ul>
+          <li>Голосовой чат используется для ролевого отыгрыша и координации, а не для музыки или криков.</li>
+          <li>Запрещено проигрывать музыку, звуковые эффекты и сэмплы через микрофон без согласия окружающих.</li>
+          <li>Не перебивай других игроков и не создавай постоянный шум.</li>
+          <li>В RP-зонах старайся оставаться в образе персонажа.</li>
+          <li>Если тебя просят снизить громкость — сделай это.</li>
+          <li>Модификация голоса (войсчейнджеры) разрешена только для RP-отыгрыша.</li>
+        </ul>
+      </div>
+      <div class="rules-block" id="block-rp">
+        <h3>🎭 RP и отыгровка</h3>
+        <ul>
+          <li>Наш сервер поддерживает лёгкую RP-атмосферу. Ты можешь отыгрывать своего персонажа, но это не обязательно.</li>
+          <li>Если игрок явно отыгрывает роль — уважай его выбор и не ломай четвёртую стену.</li>
+          <li>RP-конфликты между персонажами ≠ реальные конфликты. Не переноси обиды из игры в реальность.</li>
+          <li>Запрещена насильственная RP без согласия второго игрока (NLR).</li>
+          <li>Администрация может организовывать RP-ивенты — участие по желанию.</li>
+        </ul>
+      </div>
+      <div class="rules-block" id="block-pvp">
+        <h3>⚔️ PvP и конфликты</h3>
+        <ul>
+          <li>PvP разрешено только по обоюдному согласию обоих игроков.</li>
+          <li>Убийство игрока без его согласия = нарушение правил.</li>
+          <li>Запрещено преследование одного игрока (сталкерство).</li>
+          <li>Воровство предметов и гриферство чужих построек строго запрещено.</li>
+          <li>При возникновении спора по PvP — обращайся к администрации с доказательствами.</li>
+        </ul>
+      </div>
+      <div class="rules-block" id="block-build">
+        <h3>🏗 Строительство</h3>
+        <ul>
+          <li>Строй на расстоянии минимум 50 блоков от чужих построек, если нет договорённости.</li>
+          <li>Запрещены оскорбительные, провокационные и NSFW-постройки.</li>
+          <li>Не оставляй незавершённые «коробки» и мусорные постройки в общественных зонах.</li>
+          <li>Используй редстоун-механизмы аккуратно — лаговые фермы будут удалены.</li>
+          <li>Общественные проекты (дороги, порталы, спавн) координируй с администрацией.</li>
+        </ul>
+      </div>
+      <div class="rules-block" id="block-cheats">
+        <h3>🚫 Читы и модификации</h3>
+        <ul>
+          <li>Любые читы, дюпы, эксплойты и X-Ray — мгновенный перманентный бан.</li>
+          <li>Разрешены: OptiFine/Sodium, шейдеры, миникарты без показа пещер/игроков, JEI/REI.</li>
+          <li>Запрещены: автокликеры, макросы, боты, баритон, любые PvP-моды.</li>
+          <li>Если нашёл баг или дюп — сообщи администрации. Использование бага = бан.</li>
+          <li>Администрация может проверить твой модлист при подозрении.</li>
+        </ul>
+      </div>
+      <div class="rules-block" id="block-admin">
+        <h3>👑 Администрация</h3>
+        <ul>
+          <li>Решения администрации окончательны. Если не согласен — подай апелляцию в Discord.</li>
+          <li>Администраторы не дают предметы и не телепортируют по личным просьбам.</li>
+          <li>Злоупотребление правами со стороны админа — пиши владельцу сервера.</li>
+          <li>Бан можно оспорить через заявку в Discord с указанием причины и аргументов.</li>
+          <li>Мы ценим каждого игрока и стараемся быть справедливыми.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+document.querySelectorAll('.rules-nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.rules-nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.rules-block').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('block-' + btn.dataset.target).classList.add('active');
+  });
+});
+</script>
+<style>
+.rules-layout{display:flex;gap:1.5rem;max-width:1000px;margin:0 auto}
+.rules-nav{
+  display:flex;flex-direction:column;gap:.5rem;
+  min-width:200px;position:sticky;top:100px;height:fit-content;
+  background:var(--card-bg);
+  border:1px solid var(--card-border);
+  border-radius:16px;
+  padding:1rem;
+  box-shadow:0 10px 32px rgba(0,0,0,.22)
+}
+.rules-nav-btn{
+  -webkit-appearance:none;appearance:none;
+  display:block;width:100%;
+  padding:.7rem 1rem;margin:0;
+  border:none!important;outline:none!important;
+  border-radius:10px;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--text-primary);
+  font-family:inherit;font-size:.95rem;font-weight:500;
+  text-align:left;cursor:pointer;
+  transition:color .2s,background .2s
+}
+.rules-nav-btn:hover{color:var(--accent);background:var(--bg-secondary)}
+.rules-nav-btn:focus{outline:none}
+.rules-nav-btn.active{background:rgba(168,85,247,.12)!important;color:var(--accent);font-weight:600}
+.rules-content{flex:1}
+.rules-block{display:none;background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;padding:2rem;animation:fadeIn .3s ease}
+.rules-block.active{display:block}
+.rules-block h3{margin:0 0 1rem;color:var(--accent);font-size:1.3rem}
+.rules-block ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:.8rem}
+.rules-block li{padding:.8rem 1rem;background:var(--bg-secondary);border-radius:10px;line-height:1.5;border-left:3px solid var(--accent)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:768px){
+  .rules-layout{flex-direction:column}
+  .rules-nav{flex-direction:row;flex-wrap:wrap;position:static;min-width:auto}
+  .rules-nav-btn{flex:1;min-width:120px;text-align:center;font-size:.85rem}
+}
+</style>
+
+</main>
+
+<footer>
+  <p>© 2026 MaoPickMe. Сайт сделан с любовью ❤️</p>
+</footer>
+
+<script src="button-click.js?v=2"></script>
+<script>
+// Theme toggle
+const html = document.documentElement;
+const themeBtn = document.getElementById('themeToggle');
+const saved = localStorage.getItem('theme') || 'dark';
+html.setAttribute('data-theme', saved);
+themeBtn.textContent = saved === 'dark' ? '☀️' : '🌙';
+
+themeBtn.addEventListener('click', () => {
+  const current = html.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+});
+
+// Mobile menu
+document.getElementById('burgerBtn').addEventListener('click', () => {
+  document.getElementById('navLinks').classList.toggle('open');
+});
+
+// Snowflakes
+const snowContainer = document.getElementById('snowContainer');
+const symbols = ['❄','❅','❆','❄','✦','✧','❄','•'];
+const rand = (a,b) => a + Math.random() * (b - a);
+function createSnowflake() {
+  const el = document.createElement('span');
+  // depth layer: far = small/blurry/slow, near = big/sharp/fast
+  const roll = Math.random();
+  let layer, size, dur, op;
+  if (roll < 0.45) { layer = 'far'; size = rand(0.35, 0.7); dur = rand(16, 26); op = rand(0.25, 0.45); }
+  else if (roll < 0.8) { layer = 'mid'; size = rand(0.7, 1.2); dur = rand(10, 18); op = rand(0.5, 0.75); }
+  else { layer = 'near'; size = rand(1.2, 2.1); dur = rand(6, 12); op = rand(0.8, 1); }
+  el.className = 'snowflake ' + layer;
+  el.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+  el.style.left = rand(-2, 100) + '%';
+  el.style.fontSize = size + 'rem';
+  el.style.setProperty('--drift', rand(-70, 70) + 'px');
+  el.style.setProperty('--op', op);
+  el.style.animationDuration = dur + 's';
+  el.style.animationDelay = rand(-20, 0) + 's';
+  if (Math.random() < 0.18) {
+    el.style.animationName = 'snowfall-gust';
+    el.style.animationDuration = dur * 0.7 + 's';
+  }
+  snowContainer.appendChild(el);
+  setTimeout(() => el.remove(), (dur + 25) * 1000);
+}
+// Initial batch — dense snow
+for (let i = 0; i < 80; i++) createSnowflake();
+// Continuous snowfall
+setInterval(createSnowflake, 180);
+// Gust waves
+setInterval(() => {
+  const all = snowContainer.querySelectorAll('.snowflake');
+  all.forEach(el => {
+    if (Math.random() < 0.12) {
+      el.style.setProperty('--drift', rand(-120, 120) + 'px');
+    }
+  });
+}, 2500);
+
+// Active link highlight
+const path = window.location.pathname;
+document.querySelectorAll('.nav-links a').forEach(a => {
+  a.classList.remove('active');
+  if (a.getAttribute('href') === path) a.classList.add('active');
+});
+</script>
+</body>
+</html>
