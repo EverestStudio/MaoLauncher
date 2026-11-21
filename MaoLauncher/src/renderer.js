@@ -61,8 +61,6 @@ function configureNavigation() {
   home.querySelector('.quickLinks')?.append(vkLink);
   const offlineIcon = document.querySelector('#offlineChoice .accountIcon');
   if (offlineIcon) offlineIcon.innerHTML = '<img alt="" src="https://mc-heads.net/avatar/Steve/42">';
-  const skinPreview = byId('profileSkinPreview');
-  if (skinPreview) skinPreview.style.cssText = 'width:42px;height:42px;flex:none;object-fit:cover;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px';
   const profileInput = byId('profileName');
   if (profileInput) profileInput.style.cssText = 'display:block;visibility:visible;opacity:1;flex:1;min-width:220px;height:42px;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--text);caret-color:var(--accent2);pointer-events:auto;user-select:text;-webkit-app-region:no-drag';
   home.querySelector('.sidepanel .address')?.remove();
@@ -462,7 +460,103 @@ byId('backToAccountChoices').addEventListener('click', showAccountChoices);
 async function createOfflineProfile() { const name = byId('profileName').value.trim(); if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) { notify('Ник: 3–16 символов, латиница, цифры или _.', true); byId('profileName').focus(); return; } try { config = await window.launcher.addProfile(name); byId('profileName').value = ''; showAccountChoices(); renderProfiles(); notify('Офлайн-профиль создан.'); } catch (e) { notify(e.message, true); } }
 byId('addProfile').addEventListener('click', createOfflineProfile);
 byId('profileName').addEventListener('keydown', event => { if (event.key === 'Enter') createOfflineProfile(); });
-byId('profileName').addEventListener('input', event => { const name = event.target.value.trim() || 'Steve'; const avatar = 'https://mc-heads.net/avatar/' + encodeURIComponent(name) + '/42'; byId('profileSkinPreview').src = avatar; const icon = document.querySelector('#offlineChoice .accountIcon'); if (icon) icon.innerHTML = '<img alt="Аватар скина ' + safe(name) + '" src="' + avatar + '">'; });
+let skinPreviewViewer = null, skinLookupTimer = null, skinLookupSequence = 0;
+function setSkinPreviewState(state, message) {
+  const root = byId('skinPreview3d');
+  if (!root) return;
+  root.classList.toggle('loading', state === 'loading');
+  root.classList.toggle('fallback', state === 'fallback');
+  const label = byId('skinPreviewStatus');
+  if (label) label.textContent = message || '';
+}
+function initSkinPreview() {
+  if (skinPreviewViewer || !window.skinview3d || !byId('profileSkinCanvas')) return Boolean(skinPreviewViewer);
+  try {
+    skinPreviewViewer = new window.skinview3d.SkinViewer({
+      canvas: byId('profileSkinCanvas'),
+      width: 220,
+      height: 250,
+      skin: 'https://mc-heads.net/skin/Steve'
+    });
+    skinPreviewViewer.controls.enableRotate = true;
+    skinPreviewViewer.controls.enableZoom = false;
+    skinPreviewViewer.controls.enablePan = false;
+    skinPreviewViewer.animation = new window.skinview3d.IdleAnimation();
+    skinPreviewViewer.zoom = 0.9;
+    return true;
+  } catch (error) {
+    console.warn('3D skin preview initialization failed:', error);
+    setSkinPreviewState('fallback', '3D-предпросмотр недоступен');
+    return false;
+  }
+}
+async function lookupOfficialSkin(name, sequence) {
+  const profileResponse = await fetch('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name), { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  if (profileResponse.status === 404) return null;
+  if (!profileResponse.ok) throw new Error('Mojang API HTTP ' + profileResponse.status);
+  const profile = await profileResponse.json();
+  if (!profile?.id) return null;
+  const sessionResponse = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + encodeURIComponent(profile.id), { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  if (!sessionResponse.ok) throw new Error('Session API HTTP ' + sessionResponse.status);
+  const session = await sessionResponse.json();
+  const property = Array.isArray(session.properties) ? session.properties.find(item => item.name === 'textures') : null;
+  if (!property?.value) return null;
+  let decoded;
+  try { decoded = JSON.parse(atob(property.value)); } catch { return null; }
+  const skinUrl = decoded?.textures?.SKIN?.url;
+  if (!skinUrl || !/^https:\/\/textures\.minecraft\.net\/texture\/[a-f0-9]+$/i.test(skinUrl)) return null;
+  if (sequence !== skinLookupSequence) return null;
+  return skinUrl;
+}
+async function updateSkinPreview(rawName) {
+  const name = String(rawName || '').trim();
+  const sequence = ++skinLookupSequence;
+  const fallback = byId('profileSkinFallback');
+  if (!name || !/^[A-Za-z0-9_]{3,16}$/.test(name)) {
+    if (skinPreviewViewer) await skinPreviewViewer.loadSkin('https://mc-heads.net/skin/Steve').catch(() => {});
+    if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
+    setSkinPreviewState('ready', 'Введите ник игрока');
+    return;
+  }
+  setSkinPreviewState('loading', 'Ищем официальный скин…');
+  try {
+    const skinUrl = await lookupOfficialSkin(name, sequence);
+    if (sequence !== skinLookupSequence) return;
+    if (!skinUrl) {
+      if (skinPreviewViewer) await skinPreviewViewer.loadSkin('https://mc-heads.net/skin/Steve');
+      if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
+      setSkinPreviewState('ready', 'Официальный скин не найден · Steve');
+      return;
+    }
+    if (!initSkinPreview()) throw new Error('3D renderer unavailable');
+    await skinPreviewViewer.loadSkin(skinUrl);
+    if (sequence !== skinLookupSequence) return;
+    if (fallback) fallback.src = 'https://mc-heads.net/avatar/' + encodeURIComponent(name) + '/100';
+    setSkinPreviewState('ready', 'Официальный скин · ' + name + ' · перетаскивай для вращения');
+  } catch (error) {
+    if (sequence !== skinLookupSequence) return;
+    console.warn('Official skin lookup failed:', error);
+    if (skinPreviewViewer) {
+      try { await skinPreviewViewer.loadSkin('https://mc-heads.net/skin/Steve'); } catch {}
+    }
+    if (fallback) fallback.src = 'https://mc-heads.net/avatar/Steve/100';
+    setSkinPreviewState('fallback', 'Не удалось загрузить скин · Steve');
+  }
+}
+byId('profileName').addEventListener('input', event => {
+  const name = event.target.value.trim();
+  clearTimeout(skinLookupTimer);
+  skinLookupTimer = setTimeout(() => updateSkinPreview(name), 450);
+  const avatarName = /^[A-Za-z0-9_]{3,16}$/.test(name) ? name : 'Steve';
+  const avatar = 'https://mc-heads.net/avatar/' + encodeURIComponent(avatarName) + '/42';
+  const icon = document.querySelector('#offlineChoice .accountIcon');
+  if (icon) icon.innerHTML = '<img alt="Аватар скина ' + safe(avatarName) + '" src="' + avatar + '">';
+});
+byId('offlineChoice').addEventListener('click', () => {
+  setSkinPreviewState('ready', 'Загружаем 3D-модель…');
+  if (!initSkinPreview()) setSkinPreviewState('fallback', '3D-предпросмотр недоступен');
+  updateSkinPreview(byId('profileName').value);
+});
 byId('reloadMap').addEventListener('click', () => { const frame = byId('serverMap'); frame.src = 'http://135.181.126.154:25602/?refresh=' + Date.now(); });
 async function copyAddress() { await navigator.clipboard.writeText('mc.maopickme.ru'); notify('IP mc.maopickme.ru скопирован.'); }
 ['copyAddress', 'copySide', 'copyDetail'].forEach(id => byId(id)?.addEventListener('click', copyAddress)); byId('refreshServer').addEventListener('click', checkServer);
