@@ -24,3 +24,13 @@ dotnet publish .\MaoLauncher.Setup.csproj -c Release -r win-x64 --self-contained
 Готовый EXE будет в `bin\Release\net10.0-windows\win-x64\publish\MaoLauncher-Setup.exe`.
 
 Это исходный прототип. Для полноценной проверки нужно добавить исходники MaoLauncher и опубликовать первый совместимый GitHub Release.
+
+## Видео-фон установщика
+
+Файл `MaoLauncher/src/assets/background.mp4` встраивается в EXE установщика.
+На старте он извлекается во временную папку и воспроизводится через WebView2:
+автозапуск, без звука, по кругу, с масштабированием `cover`. Интерфейс установщика
+остаётся поверх видео. Если WebView2 Runtime недоступен, установщик использует
+статичный `background_main.jpg`.
+
+Для воспроизведения требуется установленный Microsoft Edge WebView2 Runtime.
