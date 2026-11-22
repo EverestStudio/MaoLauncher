@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('launcher', Object.freeze({
   readSettings: () => ipcRenderer.invoke('settings:read'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   addProfile: (name) => ipcRenderer.invoke('profiles:add', name),
+  lookupOfficialSkin: (name) => ipcRenderer.invoke('skins:lookup', name),
   selectProfile: (name) => ipcRenderer.invoke('profiles:select', name),
   deleteProfile: (name) => ipcRenderer.invoke('profiles:delete', name),
   gameState: () => ipcRenderer.invoke('game:state'),
