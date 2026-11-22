@@ -78,7 +78,6 @@ internal sealed class SetupForm : Form
             Dock = DockStyle.Fill
         };
         Controls.Add(background);
-        InitializeVideoBackground(background);
         FormClosed += (_, _) => CleanupVideoBackground();
 
         var topBar = new Panel
@@ -170,7 +169,11 @@ internal sealed class SetupForm : Form
         background.Controls.Add(footer);
 
         FormClosing += (_, _) => _cancellation?.Cancel();
-        Shown += async (_, _) => await InstallAsync();
+        Shown += async (_, _) =>
+        {
+            InitializeVideoBackground(background);
+            await InstallAsync();
+        };
     }
 
     private static Button CreateWindowButton(string text, Color color)
