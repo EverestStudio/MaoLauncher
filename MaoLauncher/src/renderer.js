@@ -42,7 +42,7 @@ function configureNavigation() {
   home.querySelector('[data-quick=top]')?.remove();
   home.querySelector('[data-quick=shop]')?.remove();
   const communityLinks = [
-    [home.querySelector('[data-quick="discord"]'), 'https://discord.gg/CFQZPmqdZ2', 'Discord', 'discord.png'],
+    [home.querySelector('[data-quick="discord"]'), 'https://discord.gg/CFQZPmqdZ2', 'Discord', ''],
     [home.querySelector('[data-quick="website"]'), 'https://maopickme.ru/', 'Сайт', 'site.png'],
     [home.querySelector('[data-quick="telegram"]'), 'https://t.me/+RFqx4ziQjLQzNGYy', 'Telegram', 'tg.png'],
   ];
@@ -51,7 +51,7 @@ function configureNavigation() {
     link.href = href;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.innerHTML = `<span class="quickIcon"><img src="assets/${icon}" alt=""></span>${label}`;
+    link.innerHTML = `<span class="quickIcon">${icon ? `<img src="assets/${icon}" alt="">` : '◉'}</span>${label}`;
   }
   const offlineIcon = document.querySelector('#offlineChoice .accountIcon');
   if (offlineIcon) offlineIcon.innerHTML = '<img alt="" src="https://mc-heads.net/avatar/Steve/42">';
@@ -273,7 +273,7 @@ const englishText = {
   'МЕНЮ':'MENU','Главная':'Home','Новости':'News','Карта сервера':'Server map','Поддержка':'Support','Сервер':'Server','Настройки':'Settings','Профиль':'Profile','Обновления':'Updates','О лаунчере':'About',
   'Твой путь в мир Minecraft начинается здесь!':'Your Minecraft adventure starts here!',
   'Новости сервера':'Server news','Последние объявления сообщества':'Latest community announcements','Пока нет новостей':'No news yet',
-  'Сборка сервера':'Server modpack','Автоматическая установка Fabric-модов':'Automatic Fabric mod installation','Быстрый доступ':'Quick links','Мы на связи':'Stay connected','Мы на связи':'Stay connected','Автопроверка обновлений':'Automatic update checks','Проверять новые версии при запуске и каждые 30 минут':'Check for new versions at startup and every 30 minutes',
+  'Сборка сервера':'Server modpack','Автоматическая установка Fabric-модов':'Automatic Fabric mod installation','Быстрый доступ':'Quick links','Мы на связи':'Stay connected','Автопроверка обновлений':'Automatic update checks','Проверять новые версии при запуске и каждые 30 минут':'Check for new versions at startup and every 30 minutes',
   'Игроки онлайн':'Players online','Версия клиента':'Client version','Подробнее':'Details','Копировать IP':'Copy IP',
   'Добавить профиль':'Add profile','Выберите способ входа в MaoLauncher':'Choose how to sign in to MaoLauncher',
   'Оффлайн':'Offline','Создать локальный профиль по нику':'Create a local profile by username','Вход через учётную запись Ely.by':'Sign in with Ely.by',
