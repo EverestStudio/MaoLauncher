@@ -734,13 +734,31 @@ internal sealed class ProgressTrack : Control
 
 internal sealed class ShineImageOverlay : Control
 {
-    private readonly Image _image;
+    private readonly Bitmap _image;
+    private readonly GraphicsPath _alphaMask = new();
     private readonly System.Windows.Forms.Timer _timer;
     private float _position = -120;
 
-    public ShineImageOverlay(Image image)
+    public ShineImageOverlay(Bitmap image)
     {
         _image = image;
+        // Build a clip path from opaque pixel runs. Bitmap.GetPixel is available here
+        // because the field is explicitly a Bitmap, not the base Image type.
+        for (var y = 0; y < _image.Height; y++)
+        {
+            var runStart = -1;
+            for (var x = 0; x <= _image.Width; x++)
+            {
+                var opaque = x < _image.Width && _image.GetPixel(x, y).A > 12;
+                if (opaque && runStart < 0) runStart = x;
+                if (!opaque && runStart >= 0)
+                {
+                    _alphaMask.AddRectangle(new Rectangle(runStart, y, x - runStart, 1));
+                    runStart = -1;
+                }
+            }
+        }
+
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
         _timer = new System.Windows.Forms.Timer { Interval = 28 };
@@ -751,7 +769,7 @@ internal sealed class ShineImageOverlay : Control
             Invalidate();
         };
         _timer.Start();
-        Disposed += (_, _) => { _timer.Dispose(); _image.Dispose(); };
+        Disposed += (_, _) => { _timer.Dispose(); _alphaMask.Dispose(); _image.Dispose(); };
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -761,19 +779,20 @@ internal sealed class ShineImageOverlay : Control
         g.SmoothingMode = SmoothingMode.HighQuality;
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        using var logoLayer = new Bitmap(Width, Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var layerGraphics = Graphics.FromImage(logoLayer))
-        {
-            layerGraphics.Clear(Color.Transparent);
-            layerGraphics.SmoothingMode = SmoothingMode.HighQuality;
-            layerGraphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            layerGraphics.DrawImage(_image, ClientRectangle);
+        g.DrawImage(_image, ClientRectangle);
 
-            // Apply the moving highlight to the logo's alpha channel only.
-            layerGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
-            var bounds = new RectangleF(_position, 0, 82, Height);
+        var state = g.Save();
+        try
+        {
+            var scaleX = Width / (float)_image.Width;
+            var scaleY = Height / (float)_image.Height;
+            g.ScaleTransform(scaleX, scaleY);
+            g.SetClip(_alphaMask, CombineMode.Intersect);
+
+            var shineBounds = new RectangleF(
+                _position / scaleX, 0, 82 / scaleX, _image.Height);
             using var shine = new LinearGradientBrush(
-                bounds,
+                shineBounds,
                 Color.FromArgb(0, 255, 255, 255),
                 Color.FromArgb(0, 255, 255, 255),
                 LinearGradientMode.Horizontal);
@@ -788,9 +807,12 @@ internal sealed class ShineImageOverlay : Control
                     Color.FromArgb(0, 255, 255, 255)
                 }
             };
-            layerGraphics.FillRectangle(shine, ClientRectangle);
+            g.FillRectangle(shine, 0, 0, _image.Width, _image.Height);
         }
-        g.DrawImageUnscaled(logoLayer, 0, 0);
+        finally
+        {
+            g.Restore(state);
+        }
     }
 }
 
