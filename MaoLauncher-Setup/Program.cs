@@ -123,39 +123,55 @@ internal sealed class SetupForm : Form
         };
         background.Controls.Add(eyebrow);
 
-        using (var logoStream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-icon.ico"))
+        using (var logoStream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-icon.png"))
         {
             if (logoStream is not null)
             {
-                using var logoIcon = new Icon(logoStream);
-                var logoImage = new Bitmap(logoIcon.ToBitmap(), new Size(58, 58));
-                var logoPicture = new PictureBox { Image = logoImage, Size = new Size(58, 58), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Location = new Point((ClientSize.Width - 58) / 2, 106) };
-                background.Controls.Add(logoPicture);
+                using var sourceImage = Image.FromStream(logoStream);
+                var logoImage = new Bitmap(sourceImage);
+                var logo = new ShineImageOverlay(logoImage)
+                {
+                    Size = new Size(104, 104),
+                    Location = new Point((ClientSize.Width - 104) / 2, 101),
+                    BackColor = Color.Transparent
+                };
+                background.Controls.Add(logo);
             }
         }
-        var logoShine = new ShineOverlay { Text = "MaoLauncher", AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Size = new Size(480, 54), Location = new Point(40, 166), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold), BackColor = Color.Transparent };
-        background.Controls.Add(logoShine);
+
+        var logoTitle = new Label
+        {
+            Text = "MaoLauncher",
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Size = new Size(480, 54),
+            Location = new Point(40, 205),
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold),
+            BackColor = Color.Transparent
+        };
+        background.Controls.Add(logoTitle);
 
         var tagline = new Label
         {
             Text = "Твой путь в мир Minecraft начинается здесь",
             AutoSize = true,
-            Location = new Point(42, 226),
+            Location = new Point(42, 264),
             ForeColor = Color.FromArgb(213, 202, 222),
             Font = new Font("Segoe UI", 11F),
             BackColor = Color.Transparent
         };
         background.Controls.Add(tagline);
 
-        _status.Location = new Point(42, 310);
+        _status.Location = new Point(42, 326);
         _status.Size = new Size(420, 24);
         background.Controls.Add(_status);
 
-        _percent.Location = new Point(470, 310);
+        _percent.Location = new Point(470, 326);
         _percent.Size = new Size(48, 24);
         background.Controls.Add(_percent);
 
-        _progress.Location = new Point(42, 344);
+        _progress.Location = new Point(42, 360);
         _progress.Size = new Size(476, 12);
         background.Controls.Add(_progress);
 
@@ -716,25 +732,65 @@ internal sealed class ProgressTrack : Control
     }
 }
 
-internal sealed class ShineOverlay : Label
+internal sealed class ShineImageOverlay : Control
 {
+    private readonly Image _image;
     private readonly System.Windows.Forms.Timer _timer;
-    private float _position = -110;
-    public ShineOverlay()
+    private float _position = -120;
+
+    public ShineImageOverlay(Image image)
     {
-        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
-        BackColor = Color.Transparent;
+        _image = image;
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
         _timer = new System.Windows.Forms.Timer { Interval = 28 };
-        _timer.Tick += (_, _) => { _position += 5.5f; if (_position > Width + 110) _position = -110; Invalidate(); };
-        _timer.Start(); Disposed += (_, _) => _timer.Dispose();
+        _timer.Tick += (_, _) =>
+        {
+            _position += 5.5f;
+            if (_position > Width + 120) _position = -120;
+            Invalidate();
+        };
+        _timer.Start();
+        Disposed += (_, _) => { _timer.Dispose(); _image.Dispose(); };
     }
+
     protected override void OnPaint(PaintEventArgs e)
     {
-        base.OnPaint(e); if (Width <= 0 || Height <= 0) return; e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = new System.Drawing.Drawing2D.GraphicsPath(); path.AddRectangle(ClientRectangle); e.Graphics.SetClip(path);
-        using var shine = new System.Drawing.Drawing2D.LinearGradientBrush(new PointF(_position, 0), new PointF(_position + 70, Height), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255));
-        shine.InterpolationColors = new System.Drawing.Drawing2D.ColorBlend { Positions = new[] { 0f, .42f, .55f, 1f }, Colors = new[] { Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(125, 255, 255, 255), Color.FromArgb(0, 255, 255, 255) } };
-        e.Graphics.FillRectangle(shine, ClientRectangle);
+        if (Width <= 0 || Height <= 0) return;
+        var g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.HighQuality;
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        using var logoLayer = new Bitmap(Width, Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var layerGraphics = Graphics.FromImage(logoLayer))
+        {
+            layerGraphics.Clear(Color.Transparent);
+            layerGraphics.SmoothingMode = SmoothingMode.HighQuality;
+            layerGraphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            layerGraphics.DrawImage(_image, ClientRectangle);
+
+            // Apply the moving highlight to the logo's alpha channel only.
+            layerGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceAtop;
+            var bounds = new RectangleF(_position, 0, 82, Height);
+            using var shine = new LinearGradientBrush(
+                bounds,
+                Color.FromArgb(0, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255),
+                LinearGradientMode.Horizontal);
+            shine.InterpolationColors = new ColorBlend
+            {
+                Positions = new[] { 0f, .42f, .55f, 1f },
+                Colors = new[]
+                {
+                    Color.FromArgb(0, 255, 255, 255),
+                    Color.FromArgb(0, 255, 255, 255),
+                    Color.FromArgb(155, 255, 255, 255),
+                    Color.FromArgb(0, 255, 255, 255)
+                }
+            };
+            layerGraphics.FillRectangle(shine, ClientRectangle);
+        }
+        g.DrawImageUnscaled(logoLayer, 0, 0);
     }
 }
 
@@ -749,9 +805,10 @@ internal sealed class BackgroundCanvas : Panel
         ResizeRedraw = true;
     }
 
-    protected override void OnPaint(PaintEventArgs e)
+    protected override void OnPaintBackground(PaintEventArgs e)
     {
-        base.OnPaint(e);
+        // Transparent child controls ask their parent to paint its background.
+        // Draw the banner here (not only in OnPaint) so labels never show clipped image tiles.
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.HighQuality;
         if (_image is not null)
@@ -771,5 +828,10 @@ internal sealed class BackgroundCanvas : Panel
         g.FillRectangle(shade, ClientRectangle);
         using var sideGlow = new LinearGradientBrush(new Rectangle(0, 0, Width, Height), Color.FromArgb(70, 102, 54, 137), Color.FromArgb(0, 20, 14, 26), LinearGradientMode.Horizontal);
         g.FillRectangle(sideGlow, ClientRectangle);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
     }
 }
