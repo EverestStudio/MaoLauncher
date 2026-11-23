@@ -133,9 +133,7 @@ internal sealed class SetupForm : Form
                 background.Controls.Add(logoPicture);
             }
         }
-        var logo = new Label { Text = "MaoLauncher", AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Size = new Size(480, 54), Location = new Point(40, 166), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold), BackColor = Color.Transparent };
-        background.Controls.Add(logo);
-        var logoShine = new ShineOverlay { Bounds = logo.Bounds };
+        var logoShine = new ShineOverlay { Text = "MaoLauncher", AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Size = new Size(480, 54), Location = new Point(40, 166), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold), BackColor = Color.Transparent };
         background.Controls.Add(logoShine);
 
         var tagline = new Label
@@ -718,7 +716,7 @@ internal sealed class ProgressTrack : Control
     }
 }
 
-internal sealed class ShineOverlay : Control
+internal sealed class ShineOverlay : Label
 {
     private readonly System.Windows.Forms.Timer _timer;
     private float _position = -110;
@@ -728,14 +726,25 @@ internal sealed class ShineOverlay : Control
         BackColor = Color.Transparent;
         _timer = new System.Windows.Forms.Timer { Interval = 28 };
         _timer.Tick += (_, _) => { _position += 5.5f; if (_position > Width + 110) _position = -110; Invalidate(); };
-        _timer.Start(); Disposed += (_, _) => _timer.Dispose();
+        _timer.Start();
+        Disposed += (_, _) => _timer.Dispose();
     }
     protected override void OnPaint(PaintEventArgs e)
     {
-        base.OnPaint(e); if (Width <= 0 || Height <= 0) return; e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = new System.Drawing.Drawing2D.GraphicsPath(); path.AddRectangle(ClientRectangle); e.Graphics.SetClip(path);
-        using var shine = new System.Drawing.Drawing2D.LinearGradientBrush(new PointF(_position, 0), new PointF(_position + 70, Height), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255));
-        shine.InterpolationColors = new System.Drawing.Drawing2D.ColorBlend { Positions = new[] { 0f, .42f, .55f, 1f }, Colors = new[] { Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(125, 255, 255, 255), Color.FromArgb(0, 255, 255, 255) } };
+        base.OnPaint(e);
+        if (Width <= 0 || Height <= 0) return;
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var path = new System.Drawing.Drawing2D.GraphicsPath();
+        path.AddRectangle(ClientRectangle);
+        e.Graphics.SetClip(path);
+        using var shine = new System.Drawing.Drawing2D.LinearGradientBrush(
+            new PointF(_position, 0), new PointF(_position + 70, Height),
+            Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255));
+        shine.InterpolationColors = new System.Drawing.Drawing2D.ColorBlend
+        {
+            Positions = new[] { 0f, .42f, .55f, 1f },
+            Colors = new[] { Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(125, 255, 255, 255), Color.FromArgb(0, 255, 255, 255) }
+        };
         e.Graphics.FillRectangle(shine, ClientRectangle);
     }
 }
