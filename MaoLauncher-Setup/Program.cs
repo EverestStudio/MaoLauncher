@@ -770,7 +770,7 @@ internal sealed class ShineImageOverlay : Control
             layerGraphics.DrawImage(_image, ClientRectangle);
 
             // Apply the moving highlight to the logo's alpha channel only.
-            layerGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceAtop;
+            layerGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
             var bounds = new RectangleF(_position, 0, 82, Height);
             using var shine = new LinearGradientBrush(
                 bounds,
