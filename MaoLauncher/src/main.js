@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, dialog } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -23,7 +23,7 @@ const PROJECTS = [
   ['player-animation-library', 'Player Animation Library'], ['sodium', 'Sodium'], ['iris', 'Iris'],
   ['litematica', 'Litematica'], ['journeymap', 'JourneyMap']
 ];
-const DEFAULTS = { memory: 4096, launchArguments: '', theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, autoUpdateChecks: true, profiles: [], activeProfile: '', installManifest: '' };
+const DEFAULTS = { memory: 4096, launchArguments: '', gameDirectory: '', theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, autoUpdateChecks: true, profiles: [], activeProfile: '', installManifest: '' };
 let mainWindow;
 let localServer;
 let localServerPort;
@@ -577,7 +577,8 @@ async function fetchTwitchStreams() {
 
 app.whenReady().then(async () => {
   settingsPath = path.join(app.getPath('userData'), 'settings.json');
-  gameRoot = path.join(app.getPath('userData'), 'game');
+  const savedGameDirectory = readSettings().gameDirectory;
+  gameRoot = savedGameDirectory ? path.resolve(savedGameDirectory) : path.join(app.getPath('userData'), 'game');
   ipcMain.handle('settings:read', () => readSettings());
   ipcMain.handle('settings:save', (_event, value) => saveSettings(value));
   ipcMain.handle('skins:lookup', async (_event, nameValue) => {
@@ -649,6 +650,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('game:state', () => { const settings = readSettings(); let manifest = {}; try { manifest = JSON.parse(settings.installManifest); } catch {} const versionPath = manifest.profile && path.join(gameRoot, 'versions', manifest.profile, `${manifest.profile}.json`); const installed = Boolean(versionPath && fs.existsSync(versionPath) && fs.existsSync(path.join(gameRoot, 'versions', `${GAME_VERSION}.json`)) && Array.isArray(manifest.files) && manifest.files.length >= PROJECTS.length && manifest.files.every(file => fs.existsSync(path.join(gameRoot, 'mods', file)))); return { installed, root: gameRoot, busy: Boolean(installPromise), running: gameRunning }; });
   ipcMain.handle('game:install', () => runMinecraft());
   ipcMain.handle('game:open-folder', () => { fs.mkdirSync(gameRoot, { recursive: true }); return shell.openPath(gameRoot); });
+  ipcMain.handle('game:choose-folder', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, { title: 'Выберите папку Minecraft', properties: ['openDirectory', 'createDirectory'] });
+    if (result.canceled || !result.filePaths[0]) return { canceled: true };
+    const selected = path.resolve(result.filePaths[0]); fs.mkdirSync(selected, { recursive: true }); gameRoot = selected;
+    saveSettings({ ...readSettings(), gameDirectory: selected }); return { canceled: false, path: selected };
+  });
   ipcMain.handle('update:check', async () => {
     const settings = readSettings();
     const [installed, launcher] = await Promise.all([resolveMods().catch(() => []), checkLauncherUpdate()]);
