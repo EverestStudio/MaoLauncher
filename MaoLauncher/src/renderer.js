@@ -1,4 +1,4 @@
-const defaults = { memory: 4096, launchArguments: '', theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, profiles: [], activeProfile: '', news: [] };
+const defaults = { memory: 4096, launchArguments: '', theme: 'auto', language: 'ru', minimizeBehavior: 'tray', snowfall: true, autoUpdateChecks: true, profiles: [], activeProfile: '', news: [] };
 let config = { ...defaults }, gameInstalled = false, gameBusy = false, gameRunning = false, newsCategory = 'server', gameUpdateAvailable = false, launcherUpdateAvailable = false, toastTimer;
 const byId = (id) => document.getElementById(id);
 function configureNavigation() {
@@ -42,8 +42,9 @@ function configureNavigation() {
   home.querySelector('[data-quick=top]')?.remove();
   home.querySelector('[data-quick=shop]')?.remove();
   const communityLinks = [
-    [home.querySelector('[data-quick="discord"]'), 'https://t.me/+RFqx4ziQjLQzNGYy', 'Telegram-чат', 'tg.png'],
-    [home.querySelector('[data-quick="website"]'), 'https://maopickme.ru', 'Наш сайт', 'site.png'],
+    [home.querySelector('[data-quick="discord"]'), 'https://discord.gg/CFQZPmqdZ2', 'Discord', 'discord.png'],
+    [home.querySelector('[data-quick="website"]'), 'https://maopickme.ru/', 'Сайт', 'site.png'],
+    [home.querySelector('[data-quick="telegram"]'), 'https://t.me/+RFqx4ziQjLQzNGYy', 'Telegram', 'tg.png'],
   ];
   for (const [link, href, label, icon] of communityLinks) {
     if (!link) continue;
@@ -52,13 +53,6 @@ function configureNavigation() {
     link.rel = 'noopener noreferrer';
     link.innerHTML = `<span class="quickIcon"><img src="assets/${icon}" alt=""></span>${label}`;
   }
-  const vkLink = document.createElement('a');
-  vkLink.className = 'quickLink';
-  vkLink.href = 'https://vk.ru/maopickme_mc';
-  vkLink.target = '_blank';
-  vkLink.rel = 'noopener noreferrer';
-  vkLink.innerHTML = '<span class="quickIcon"><img src="assets/vk.png" alt=""></span>Группа ВК';
-  home.querySelector('.quickLinks')?.append(vkLink);
   const offlineIcon = document.querySelector('#offlineChoice .accountIcon');
   if (offlineIcon) offlineIcon.innerHTML = '<img alt="" src="https://mc-heads.net/avatar/Steve/42">';
   const profileInput = byId('profileName');
@@ -279,7 +273,7 @@ const englishText = {
   'МЕНЮ':'MENU','Главная':'Home','Новости':'News','Карта сервера':'Server map','Поддержка':'Support','Сервер':'Server','Настройки':'Settings','Профиль':'Profile','Обновления':'Updates','О лаунчере':'About',
   'Твой путь в мир Minecraft начинается здесь!':'Your Minecraft adventure starts here!',
   'Новости сервера':'Server news','Последние объявления сообщества':'Latest community announcements','Пока нет новостей':'No news yet',
-  'Сборка сервера':'Server modpack','Автоматическая установка Fabric-модов':'Automatic Fabric mod installation','Быстрый доступ':'Quick links',
+  'Сборка сервера':'Server modpack','Автоматическая установка Fabric-модов':'Automatic Fabric mod installation','Быстрый доступ':'Quick links','Мы на связи':'Stay connected','Мы на связи':'Stay connected','Автопроверка обновлений':'Automatic update checks','Проверять новые версии при запуске и каждые 30 минут':'Check for new versions at startup and every 30 minutes',
   'Игроки онлайн':'Players online','Версия клиента':'Client version','Подробнее':'Details','Копировать IP':'Copy IP',
   'Добавить профиль':'Add profile','Выберите способ входа в MaoLauncher':'Choose how to sign in to MaoLauncher',
   'Оффлайн':'Offline','Создать локальный профиль по нику':'Create a local profile by username','Вход через учётную запись Ely.by':'Sign in with Ely.by',
@@ -307,7 +301,7 @@ function applyLanguage() {
   byId('minimizeWindow').title = english ? 'Minimize' : 'Свернуть';
   byId('closeWindow').title = english ? 'Close' : 'Закрыть';
 }
-function render() { document.title = 'MaoLauncher'; const serverNews = newsCategory === 'server'; const homeNewsTitle = byId('homeNewsTitle'); if (homeNewsTitle) homeNewsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; byId('homeNews').innerHTML = serverNews ? renderNews((config.news || []).slice(0, 3), true, true) : renderNews([]); byId('allNews').innerHTML = serverNews ? renderNews(config.news || []) : renderNews([]); document.querySelectorAll('[data-news-category]').forEach(button => button.classList.toggle('active', button.dataset.newsCategory === newsCategory)); const newsTitle = byId('newsPageTitle'); if (newsTitle) newsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; const newsSubtitle = byId('newsPageSubtitle'); if (newsSubtitle) newsSubtitle.textContent = serverNews ? 'Объявления сообщества' : 'Обновления и объявления MaoLauncher'; const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; if (byId('launchArgumentsSetting')) byId('launchArgumentsSetting').value = config.launchArguments || '';  document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
+function render() { document.title = 'MaoLauncher'; const serverNews = newsCategory === 'server'; const homeNewsTitle = byId('homeNewsTitle'); if (homeNewsTitle) homeNewsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; byId('homeNews').innerHTML = serverNews ? renderNews((config.news || []).slice(0, 3), true, true) : renderNews([]); byId('allNews').innerHTML = serverNews ? renderNews(config.news || []) : renderNews([]); document.querySelectorAll('[data-news-category]').forEach(button => button.classList.toggle('active', button.dataset.newsCategory === newsCategory)); const newsTitle = byId('newsPageTitle'); if (newsTitle) newsTitle.textContent = serverNews ? 'Новости сервера' : 'Новости лаунчера'; const newsSubtitle = byId('newsPageSubtitle'); if (newsSubtitle) newsSubtitle.textContent = serverNews ? 'Объявления сообщества' : 'Обновления и объявления MaoLauncher'; const memory = Math.max(2048, Math.min(16384, Math.round(Number(config.memory) || 4096))); byId('memorySetting').value = String(memory); byId('memoryManual').value = String(memory); byId('memorySetting').style.setProperty('--memory-progress', ((memory - 2048) / (16384 - 2048) * 100) + '%'); byId('themeSetting').value = config.theme; byId('snowfallSetting').checked = config.snowfall !== false; byId('autoUpdateSetting').checked = config.autoUpdateChecks !== false; byId('languageSetting').value = config.language; byId('minimizeBehavior').value = config.minimizeBehavior || 'tray'; if (byId('launchArgumentsSetting')) byId('launchArgumentsSetting').value = config.launchArguments || '';  document.documentElement.dataset.theme = config.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : config.theme; renderProfiles(); renderPlayButton(); applySnowfall(); }
 async function refreshState() { try { const state = await window.launcher.gameState(); gameInstalled = Boolean(state.installed); gameRunning = Boolean(state.running); } catch { gameInstalled = false; gameRunning = false; } renderPlayButton(); }
 function setUnavailable(message, status = 'Нет данных') { byId('serverStatus').textContent = status; byId('players').textContent = '— / —'; if (byId('ping')) byId('ping').textContent = '— мс'; byId('topStatus').textContent = status.toUpperCase(); byId('topStatus').className = 'pill bad'; byId('sideStatus').textContent = 'Статистика недоступна'; byId('serverError').textContent = message || ''; byId('avatars').replaceChildren(); byId('serverStatusDetail').textContent = status; byId('playersDetail').textContent = '— / —'; byId('pingDetail').textContent = '— мс'; byId('serverVersionDetail').textContent = '—'; }
 let serverCheckPromise = null;
@@ -557,10 +551,10 @@ async function saveMemory(value) { const memory = updateMemoryPreview(value); co
 byId('memorySetting').addEventListener('input', event => updateMemoryPreview(event.target.value));
 byId('memorySetting').addEventListener('change', event => saveMemory(event.target.value).catch(error => notify(error.message, true)));
 byId('memoryManual').addEventListener('change', event => { const value = Number(event.target.value); if (!Number.isFinite(value) || value < 2048 || value > 16384) { notify('Укажи память от 2048 до 16384 МБ.', true); render(); return; } saveMemory(value).catch(error => notify(error.message, true)); });
-for (const [id, key] of [['themeSetting', 'theme'], ['languageSetting', 'language'], ['minimizeBehavior', 'minimizeBehavior'], ['snowfallSetting', 'snowfall']]) byId(id).addEventListener('change', async e => {
+for (const [id, key] of [['themeSetting', 'theme'], ['languageSetting', 'language'], ['minimizeBehavior', 'minimizeBehavior'], ['snowfallSetting', 'snowfall'], ['autoUpdateSetting', 'autoUpdateChecks']]) byId(id).addEventListener('change', async e => {
   const previous = config;
   try {
-    config = await window.launcher.saveSettings({ ...config, [key]: key === 'snowfall' ? e.target.checked : e.target.value });
+    config = await window.launcher.saveSettings({ ...config, [key]: ['snowfall', 'autoUpdateChecks'].includes(key) ? e.target.checked : e.target.value });
     render();
     if (key === 'language') applyLanguage();
   } catch (error) {
@@ -618,4 +612,4 @@ window.launcher.onLauncherUpdateProgress(d => { byId('progressWrap').hidden = fa
 window.launcher.onProgress(d => { byId('progressWrap').hidden = false; const pct = d.total ? Math.max(3, Math.min(100, Math.round(d.current / d.total * 100))) : 6; byId('progressBar').style.width = pct + '%'; byId('progressText').textContent = (d.label || 'Загрузка') + (d.total ? ' · ' + d.current + '/' + d.total : ''); });
 window.launcher.onGameStarted(d => { gameRunning = true; renderPlayButton(); notify('Minecraft запущен: ' + d.profile); }); window.launcher.onGameClosed(d => { gameRunning = false; renderPlayButton(); if (d.code) notify('Игра завершилась с кодом ' + d.code, true); }); window.launcher.onGameLog(line => { byId('progressText').textContent = line; });
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (config.theme === 'auto') render(); });
-(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); await refreshState(); checkServer(); setInterval(checkServer, 7000); checkUpdates('updateHint', true); loadNews(); setInterval(loadNews, 15 * 60 * 1000); setInterval(() => { if (byId('streamsview')?.classList.contains('active')) refreshTwitchStreams(); }, 180000); })();
+(async () => { try { config = { ...defaults, ...(await window.launcher.readSettings()) }; } catch (e) { notify(e.message, true); } render(); applyLanguage(); await refreshState(); checkServer(); setInterval(checkServer, 7000); if (config.autoUpdateChecks !== false) { checkUpdates('updateHint', true); setInterval(() => { if (config.autoUpdateChecks !== false) checkUpdates('updateHint', true); }, 30 * 60 * 1000); } loadNews(); setInterval(loadNews, 15 * 60 * 1000); setInterval(() => { if (byId('streamsview')?.classList.contains('active')) refreshTwitchStreams(); }, 180000); })();
