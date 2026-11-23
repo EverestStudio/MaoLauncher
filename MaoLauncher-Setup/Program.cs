@@ -116,44 +116,46 @@ internal sealed class SetupForm : Form
         {
             Text = "MINECRAFT  •  YOUR NEXT ADVENTURE",
             AutoSize = true,
-            Location = new Point(40, 92),
+            Location = new Point(178, 76),
             ForeColor = Color.FromArgb(214, 160, 255),
             Font = new Font("Segoe UI Semibold", 9F),
             BackColor = Color.Transparent
         };
         background.Controls.Add(eyebrow);
 
-        var logo = new Label
+        using (var logoStream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-icon.ico"))
         {
-            Text = "MaoLauncher",
-            AutoSize = true,
-            Location = new Point(36, 122),
-            ForeColor = Color.White,
-            Font = new Font("Segoe UI Semibold", 32F, FontStyle.Bold),
-            BackColor = Color.Transparent
-        };
-        background.Controls.Add(logo);
+            if (logoStream is not null)
+            {
+                using var logoIcon = new Icon(logoStream);
+                var logoImage = new Bitmap(logoIcon.ToBitmap(), new Size(58, 58));
+                var logoPicture = new PictureBox { Image = logoImage, Size = new Size(58, 58), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Location = new Point((ClientSize.Width - 58) / 2, 106) };
+                background.Controls.Add(logoPicture);
+            }
+        }
+        var logoShine = new ShineOverlay { Text = "MaoLauncher", AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Size = new Size(480, 54), Location = new Point(40, 166), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold), BackColor = Color.Transparent };
+        background.Controls.Add(logoShine);
 
         var tagline = new Label
         {
             Text = "Твой путь в мир Minecraft начинается здесь",
             AutoSize = true,
-            Location = new Point(42, 180),
+            Location = new Point(42, 226),
             ForeColor = Color.FromArgb(213, 202, 222),
             Font = new Font("Segoe UI", 11F),
             BackColor = Color.Transparent
         };
         background.Controls.Add(tagline);
 
-        _status.Location = new Point(42, 270);
+        _status.Location = new Point(42, 310);
         _status.Size = new Size(420, 24);
         background.Controls.Add(_status);
 
-        _percent.Location = new Point(470, 270);
+        _percent.Location = new Point(470, 310);
         _percent.Size = new Size(48, 24);
         background.Controls.Add(_percent);
 
-        _progress.Location = new Point(42, 304);
+        _progress.Location = new Point(42, 344);
         _progress.Size = new Size(476, 12);
         background.Controls.Add(_progress);
 
@@ -231,7 +233,7 @@ internal sealed class SetupForm : Form
         };
         _videoBackground = video;
         background.Controls.Add(video);
-        video.BringToFront();
+        video.SendToBack();
 
         try
         {
@@ -711,6 +713,28 @@ internal sealed class ProgressTrack : Control
                 e.Graphics.FillPath(fill, fillPath);
             }
         }
+    }
+}
+
+internal sealed class ShineOverlay : Label
+{
+    private readonly System.Windows.Forms.Timer _timer;
+    private float _position = -110;
+    public ShineOverlay()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
+        BackColor = Color.Transparent;
+        _timer = new System.Windows.Forms.Timer { Interval = 28 };
+        _timer.Tick += (_, _) => { _position += 5.5f; if (_position > Width + 110) _position = -110; Invalidate(); };
+        _timer.Start(); Disposed += (_, _) => _timer.Dispose();
+    }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e); if (Width <= 0 || Height <= 0) return; e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var path = new System.Drawing.Drawing2D.GraphicsPath(); path.AddRectangle(ClientRectangle); e.Graphics.SetClip(path);
+        using var shine = new System.Drawing.Drawing2D.LinearGradientBrush(new PointF(_position, 0), new PointF(_position + 70, Height), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255));
+        shine.InterpolationColors = new System.Drawing.Drawing2D.ColorBlend { Positions = new[] { 0f, .42f, .55f, 1f }, Colors = new[] { Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(125, 255, 255, 255), Color.FromArgb(0, 255, 255, 255) } };
+        e.Graphics.FillRectangle(shine, ClientRectangle);
     }
 }
 
