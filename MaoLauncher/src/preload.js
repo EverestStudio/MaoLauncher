@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('launcher', Object.freeze({
   gameState: () => ipcRenderer.invoke('game:state'),
   installGame: () => ipcRenderer.invoke('game:install'),
   openGameFolder: () => ipcRenderer.invoke('game:open-folder'),
+  chooseGameFolder: () => ipcRenderer.invoke('game:choose-folder'),
   checkUpdates: () => ipcRenderer.invoke('update:check'),
   getNews: () => ipcRenderer.invoke('news:get'),
   getLauncherVersion: () => ipcRenderer.invoke('launcher:version'),
