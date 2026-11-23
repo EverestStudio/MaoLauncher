@@ -761,36 +761,49 @@ internal sealed class ShineImageOverlay : Control
         g.SmoothingMode = SmoothingMode.HighQuality;
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        using var logoLayer = new Bitmap(Width, Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var layerGraphics = Graphics.FromImage(logoLayer))
-        {
-            layerGraphics.Clear(Color.Transparent);
-            layerGraphics.SmoothingMode = SmoothingMode.HighQuality;
-            layerGraphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            layerGraphics.DrawImage(_image, ClientRectangle);
+        g.DrawImage(_image, ClientRectangle);
 
-            // Apply the moving highlight to the logo's alpha channel only.
-            layerGraphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceAtop;
-            var bounds = new RectangleF(_position, 0, 82, Height);
-            using var shine = new LinearGradientBrush(
-                bounds,
-                Color.FromArgb(0, 255, 255, 255),
-                Color.FromArgb(0, 255, 255, 255),
-                LinearGradientMode.Horizontal);
-            shine.InterpolationColors = new ColorBlend
+        // Clip the highlight to the non-transparent pixels of the logo.
+        using var alphaPath = new System.Drawing.Drawing2D.GraphicsPath();
+        for (int y = 0; y < _image.Height; y++)
+        {
+            int runStart = -1;
+            for (int x = 0; x <= _image.Width; x++)
             {
-                Positions = new[] { 0f, .42f, .55f, 1f },
-                Colors = new[]
+                bool visible = x < _image.Width && _image.GetPixel(x, y).A > 8;
+                if (visible && runStart < 0) runStart = x;
+                if (!visible && runStart >= 0)
                 {
-                    Color.FromArgb(0, 255, 255, 255),
-                    Color.FromArgb(0, 255, 255, 255),
-                    Color.FromArgb(155, 255, 255, 255),
-                    Color.FromArgb(0, 255, 255, 255)
+                    alphaPath.AddRectangle(new Rectangle(runStart, y, x - runStart, 1));
+                    runStart = -1;
                 }
-            };
-            layerGraphics.FillRectangle(shine, ClientRectangle);
+            }
         }
-        g.DrawImageUnscaled(logoLayer, 0, 0);
+
+        using var transform = new System.Drawing.Drawing2D.Matrix(
+            Width / (float)_image.Width, 0, 0, Height / (float)_image.Height, 0, 0);
+        alphaPath.Transform(transform);
+        var state = g.Save();
+        g.SetClip(alphaPath);
+        var bounds = new RectangleF(_position, 0, 82, Height);
+        using var shine = new LinearGradientBrush(
+            bounds,
+            Color.FromArgb(0, 255, 255, 255),
+            Color.FromArgb(0, 255, 255, 255),
+            LinearGradientMode.Horizontal);
+        shine.InterpolationColors = new ColorBlend
+        {
+            Positions = new[] { 0f, .42f, .55f, 1f },
+            Colors = new[]
+            {
+                Color.FromArgb(0, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255),
+                Color.FromArgb(155, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255)
+            }
+        };
+        g.FillRectangle(shine, ClientRectangle);
+        g.Restore(state);
     }
 }
 
