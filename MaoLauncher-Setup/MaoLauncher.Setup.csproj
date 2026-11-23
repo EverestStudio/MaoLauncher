@@ -24,5 +24,8 @@
     <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.ico"
                       Link="mao-icon.ico"
                       LogicalName="MaoLauncher.Setup.mao-icon.ico" />
+    <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.png"
+                      Link="mao-icon.png"
+                      LogicalName="MaoLauncher.Setup.mao-icon.png" />
   </ItemGroup>
 </Project>
