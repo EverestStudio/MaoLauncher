@@ -7,6 +7,8 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace MaoLauncher.Setup;
 
@@ -44,6 +46,8 @@ internal sealed class SetupForm : Form
     };
     
     private CancellationTokenSource? _cancellation;
+    private WebView2? _videoBackground;
+    private string? _videoDirectory;
 
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
@@ -74,6 +78,7 @@ internal sealed class SetupForm : Form
             Dock = DockStyle.Fill
         };
         Controls.Add(background);
+        FormClosed += (_, _) => CleanupVideoBackground();
 
         var topBar = new Panel
         {
@@ -164,7 +169,11 @@ internal sealed class SetupForm : Form
         background.Controls.Add(footer);
 
         FormClosing += (_, _) => _cancellation?.Cancel();
-        Shown += async (_, _) => await InstallAsync();
+        Shown += async (_, _) =>
+        {
+            InitializeVideoBackground(background);
+            await InstallAsync();
+        };
     }
 
     private static Button CreateWindowButton(string text, Color color)
@@ -211,6 +220,89 @@ internal sealed class SetupForm : Form
         path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
         path.CloseFigure();
         return path;
+    }
+
+    private async void InitializeVideoBackground(BackgroundCanvas background)
+    {
+        var video = new WebView2
+        {
+            Dock = DockStyle.Fill,
+            DefaultBackgroundColor = Color.FromArgb(13, 10, 17)
+        };
+        _videoBackground = video;
+        background.Controls.Add(video);
+        video.BringToFront();
+
+        try
+        {
+            await video.EnsureCoreWebView2Async();
+            var directory = Path.Combine(Path.GetTempPath(), "MaoLauncherSetup-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            _videoDirectory = directory;
+
+            using (var resource = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.background.mp4")
+                ?? throw new FileNotFoundException("В установщик не встроен background.mp4."))
+            using (var output = new FileStream(Path.Combine(directory, "background.mp4"), FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+            {
+                await resource.CopyToAsync(output);
+            }
+
+            video.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            video.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            video.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            video.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "mao.local", directory, CoreWebView2HostResourceAccessKind.Allow);
+
+            video.NavigateToString("""
+                <!doctype html>
+                <html>
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                  <style>
+                    * { box-sizing: border-box; }
+                    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #0d0a11; }
+                    video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+                    .shade { position: fixed; inset: 0; pointer-events: none;
+                      background: linear-gradient(90deg, rgba(12,9,17,.72), rgba(12,9,17,.48) 58%, rgba(12,9,17,.62)),
+                                  linear-gradient(0deg, rgba(8,7,12,.28), transparent 55%); }
+                  </style>
+                </head>
+                <body>
+                  <video autoplay muted loop playsinline preload="auto">
+                    <source src="https://mao.local/background.mp4" type="video/mp4">
+                  </video>
+                  <div class="shade"></div>
+                </body>
+                </html>
+                """);
+        }
+        catch (Exception ex)
+        {
+            WriteErrorLog("Не удалось запустить видеофон установщика. Используется статичный фон.", ex);
+            if (!video.IsDisposed)
+            {
+                background.Controls.Remove(video);
+                video.Dispose();
+            }
+            if (ReferenceEquals(_videoBackground, video)) _videoBackground = null;
+            CleanupVideoDirectory();
+        }
+    }
+
+    private void CleanupVideoBackground()
+    {
+        try { _videoBackground?.Dispose(); } catch { }
+        _videoBackground = null;
+        CleanupVideoDirectory();
+    }
+
+    private void CleanupVideoDirectory()
+    {
+        var directory = _videoDirectory;
+        _videoDirectory = null;
+        if (directory is null) return;
+        try { if (Directory.Exists(directory)) Directory.Delete(directory, true); } catch { }
     }
 
     private static Image? LoadBanner()

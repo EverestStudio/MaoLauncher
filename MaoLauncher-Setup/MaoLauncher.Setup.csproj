@@ -11,6 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\MaoLauncher\src\assets\background.mp4"
+                      Link="background.mp4"
+                      LogicalName="MaoLauncher.Setup.background.mp4" />
     <EmbeddedResource Include="..\MaoLauncher\src\assets\background_main.jpg"
                       Link="background_main.jpg"
                       LogicalName="MaoLauncher.Setup.background_main.jpg" />
