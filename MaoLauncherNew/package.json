@@ -1,0 +1,60 @@
+{
+  "name": "mao-launcher",
+  "version": "1.0.6",
+  "description": "MaoLauncher for mc.maopickme.ru",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win zip"
+  },
+  "devDependencies": {
+    "electron": "^38.8.6",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "ru.mopickme.maolauncher",
+    "productName": "MaoLauncher",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "python/helper.py",
+        "to": "python/helper.py"
+      },
+      {
+        "from": "python/runtime",
+        "to": "python"
+      },
+      {
+        "from": "src/assets",
+        "to": "assets"
+      },
+      {
+        "from": "src/assets/mods",
+        "to": "mods"
+      }
+    ],
+    "win": {
+      "icon": "src/assets/mao-icon.ico",
+      "target": [
+        "zip"
+      ],
+      "artifactName": "MaoLauncher-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "minecraft-launcher-core": "3.18.2",
+    "@xhayper/discord-rpc": "1.5.1"
+  }
+}
