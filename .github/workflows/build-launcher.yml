@@ -1,0 +1,37 @@
+name: Build MaoLauncher (Windows)
+
+on:
+  push:
+    branches: [preview/build-current-html]
+    paths:
+      - "MaoLauncherNew/**"
+      - ".github/workflows/build-launcher.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: npm
+          cache-dependency-path: MaoLauncherNew/package-lock.json
+      - name: Synchronize lockfile and install dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: MaoLauncherNew
+      - name: Build Windows ZIP
+        run: npm run dist:win
+        working-directory: MaoLauncherNew
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MaoLauncher-windows-preview
+          path: MaoLauncherNew/dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
