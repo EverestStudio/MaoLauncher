@@ -167,7 +167,18 @@ internal sealed class SetupForm : Form
             var logoData = Convert.ToBase64String(logoBuffer.ToArray());
             html = html.Replace("kitty.png", "data:image/png;base64," + logoData, StringComparison.Ordinal);
 
+            var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<CoreWebView2NavigationCompletedEventArgs>? navigationHandler = null;
+            navigationHandler = (_, args) =>
+            {
+                _webView.CoreWebView2.NavigationCompleted -= navigationHandler;
+                if (args.IsSuccess) navigation.TrySetResult(true);
+                else navigation.TrySetException(new InvalidOperationException("Не удалось загрузить интерфейс установщика."));
+            };
+            _webView.CoreWebView2.NavigationCompleted += navigationHandler;
             _webView.NavigateToString(html);
+            await navigation.Task;
+
             _uiReady = true;
             SetProgress(0, "Инициализация установщика");
         }
