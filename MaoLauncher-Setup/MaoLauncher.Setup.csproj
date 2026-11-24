@@ -15,6 +15,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="installer.html"
+                      LogicalName="MaoLauncher.Setup.installer.html" />
     <EmbeddedResource Include="..\MaoLauncher\src\assets\background.mp4"
                       Link="background.mp4"
                       LogicalName="MaoLauncher.Setup.background.mp4" />
@@ -24,5 +26,8 @@
     <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.ico"
                       Link="mao-icon.ico"
                       LogicalName="MaoLauncher.Setup.mao-icon.ico" />
+    <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.png"
+                      Link="mao-icon.png"
+                      LogicalName="MaoLauncher.Setup.mao-icon.png" />
   </ItemGroup>
 </Project>
