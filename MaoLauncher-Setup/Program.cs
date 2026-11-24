@@ -26,28 +26,9 @@ internal sealed class SetupForm : Form
 {
     private const string Repository = "EverestStudio/MaoLauncher";
     private static readonly HttpClient Http = CreateHttpClient();
-    private readonly Label _status = new()
-    {
-        AutoSize = false,
-        Text = "Всё готово к установке",
-        ForeColor = Color.FromArgb(226, 216, 237),
-        Font = new Font("Segoe UI", 10F),
-        BackColor = Color.Transparent
-    };
-    private readonly ProgressTrack _progress = new() { BackColor = Color.Transparent };
-    private readonly Label _percent = new()
-    {
-        AutoSize = false,
-        Text = "0%",
-        TextAlign = ContentAlignment.MiddleRight,
-        ForeColor = Color.FromArgb(214, 160, 255),
-        Font = new Font("Segoe UI Semibold", 9F),
-        BackColor = Color.Transparent
-    };
-    
+    private WebView2? _webView;
+    private bool _uiReady;
     private CancellationTokenSource? _cancellation;
-    private WebView2? _videoBackground;
-    private string? _videoDirectory;
 
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
@@ -62,134 +43,29 @@ internal sealed class SetupForm : Form
         {
             if (iconStream is not null) Icon = new Icon(iconStream);
         }
-        ClientSize = new Size(560, 520);
-        MinimumSize = new Size(560, 520);
-        MaximumSize = new Size(560, 520);
+
+        ClientSize = new Size(768, 558);
+        MinimumSize = new Size(768, 558);
+        MaximumSize = new Size(768, 558);
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.None;
         ControlBox = false;
         MaximizeBox = false;
         MinimizeBox = false;
-        BackColor = Color.FromArgb(13, 10, 17);
-        DoubleBuffered = true;
+        BackColor = Color.FromArgb(9, 10, 14);
 
-        var background = new BackgroundCanvas(LoadBanner())
+        _webView = new WebView2
         {
-            Dock = DockStyle.Fill
+            Dock = DockStyle.Fill,
+            DefaultBackgroundColor = BackColor
         };
-        Controls.Add(background);
-        FormClosed += (_, _) => CleanupVideoBackground();
-
-        var topBar = new Panel
-        {
-            Dock = DockStyle.Top,
-            Height = 46,
-            BackColor = Color.FromArgb(150, 12, 9, 17)
-        };
-        background.Controls.Add(topBar);
-        topBar.MouseDown += DragWindow;
-        var topTitle = new Label
-        {
-            Text = "MAO PICK ME  /  INSTALLER",
-            AutoSize = true,
-            Location = new Point(20, 15),
-            ForeColor = Color.FromArgb(185, 170, 198),
-            Font = new Font("Segoe UI Semibold", 8F),
-            BackColor = Color.Transparent
-        };
-        topBar.Controls.Add(topTitle);
-        topTitle.MouseDown += DragWindow;
-
-        var windowButtons = new Panel { Dock = DockStyle.Right, Width = 92, BackColor = Color.Transparent };
-        var minimizeButton = CreateWindowButton("—", Color.FromArgb(226, 216, 237));
-        minimizeButton.Location = new Point(0, 0);
-        minimizeButton.Click += (_, _) => WindowState = FormWindowState.Minimized;
-        var closeButton = CreateWindowButton("×", Color.FromArgb(255, 255, 255));
-        closeButton.Location = new Point(46, 0);
-        closeButton.Click += (_, _) => Close();
-        windowButtons.Controls.Add(minimizeButton);
-        windowButtons.Controls.Add(closeButton);
-        topBar.Controls.Add(windowButtons);
-        windowButtons.BringToFront();
-
-        var eyebrow = new Label
-        {
-            Text = "MINECRAFT  •  YOUR NEXT ADVENTURE",
-            AutoSize = true,
-            Location = new Point(178, 76),
-            ForeColor = Color.FromArgb(214, 160, 255),
-            Font = new Font("Segoe UI Semibold", 9F),
-            BackColor = Color.Transparent
-        };
-        background.Controls.Add(eyebrow);
-
-        using (var logoStream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-icon.png"))
-        {
-            if (logoStream is not null)
-            {
-                using var sourceImage = Image.FromStream(logoStream);
-                var logoImage = new Bitmap(sourceImage);
-                var logo = new ShineImageOverlay(logoImage)
-                {
-                    Size = new Size(104, 104),
-                    Location = new Point((ClientSize.Width - 104) / 2, 101),
-                    BackColor = Color.Transparent
-                };
-                background.Controls.Add(logo);
-            }
-        }
-
-        var logoTitle = new Label
-        {
-            Text = "MaoLauncher",
-            AutoSize = false,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Size = new Size(480, 54),
-            Location = new Point(40, 205),
-            ForeColor = Color.White,
-            Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold),
-            BackColor = Color.Transparent
-        };
-        background.Controls.Add(logoTitle);
-
-        var tagline = new Label
-        {
-            Text = "Твой путь в мир Minecraft начинается здесь",
-            AutoSize = true,
-            Location = new Point(42, 264),
-            ForeColor = Color.FromArgb(213, 202, 222),
-            Font = new Font("Segoe UI", 11F),
-            BackColor = Color.Transparent
-        };
-        background.Controls.Add(tagline);
-
-        _status.Location = new Point(42, 326);
-        _status.Size = new Size(420, 24);
-        background.Controls.Add(_status);
-
-        _percent.Location = new Point(470, 326);
-        _percent.Size = new Size(48, 24);
-        background.Controls.Add(_percent);
-
-        _progress.Location = new Point(42, 360);
-        _progress.Size = new Size(476, 12);
-        background.Controls.Add(_progress);
-
-        var footer = new Label
-        {
-            Text = "MAOLAUNCHER  •  ОФИЦИАЛЬНЫЙ УСТАНОВЩИК",
-            AutoSize = true,
-            Location = new Point(42, 475),
-            ForeColor = Color.FromArgb(145, 130, 157),
-            Font = new Font("Segoe UI", 7.5F),
-            BackColor = Color.Transparent
-        };
-        background.Controls.Add(footer);
+        Controls.Add(_webView);
 
         FormClosing += (_, _) => _cancellation?.Cancel();
+        FormClosed += (_, _) => _webView?.Dispose();
         Shown += async (_, _) =>
         {
-            InitializeVideoBackground(background);
+            await InitializeInstallerUiAsync();
             await InstallAsync();
         };
     }
@@ -240,87 +116,66 @@ internal sealed class SetupForm : Form
         return path;
     }
 
-    private async void InitializeVideoBackground(BackgroundCanvas background)
+    private async Task InitializeInstallerUiAsync()
     {
-        var video = new WebView2
-        {
-            Dock = DockStyle.Fill,
-            DefaultBackgroundColor = Color.FromArgb(13, 10, 17)
-        };
-        _videoBackground = video;
-        background.Controls.Add(video);
-        video.SendToBack();
+        if (_webView is null) return;
 
         try
         {
-            await video.EnsureCoreWebView2Async();
-            var directory = Path.Combine(Path.GetTempPath(), "MaoLauncherSetup-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(directory);
-            _videoDirectory = directory;
-
-            using (var resource = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.background.mp4")
-                ?? throw new FileNotFoundException("В установщик не встроен background.mp4."))
-            using (var output = new FileStream(Path.Combine(directory, "background.mp4"), FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+            await _webView.EnsureCoreWebView2Async();
+            _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            _webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+            _webView.CoreWebView2.WebMessageReceived += (_, args) =>
             {
-                await resource.CopyToAsync(output);
-            }
+                try
+                {
+                    using var message = JsonDocument.Parse(args.WebMessageAsJson);
+                    var action = message.RootElement.TryGetProperty("action", out var value)
+                        ? value.GetString()
+                        : null;
 
-            video.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-            video.CoreWebView2.Settings.AreDevToolsEnabled = false;
-            video.CoreWebView2.Settings.IsStatusBarEnabled = false;
-            video.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                "mao.local", directory, CoreWebView2HostResourceAccessKind.Allow);
+                    switch (action)
+                    {
+                        case "minimize":
+                            WindowState = FormWindowState.Minimized;
+                            break;
+                        case "close":
+                            Close();
+                            break;
+                        case "drag":
+                            ReleaseCapture();
+                            SendMessage(Handle, 0xA1, (nint)0x2, 0);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    WriteErrorLog("Не удалось обработать действие интерфейса установщика.", ex);
+                }
+            };
 
-            video.NavigateToString("""
-                <!doctype html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1">
-                  <style>
-                    * { box-sizing: border-box; }
-                    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #0d0a11; }
-                    video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-                    .shade { position: fixed; inset: 0; pointer-events: none;
-                      background: linear-gradient(90deg, rgba(12,9,17,.72), rgba(12,9,17,.48) 58%, rgba(12,9,17,.62)),
-                                  linear-gradient(0deg, rgba(8,7,12,.28), transparent 55%); }
-                  </style>
-                </head>
-                <body>
-                  <video autoplay muted loop playsinline preload="auto">
-                    <source src="https://mao.local/background.mp4" type="video/mp4">
-                  </video>
-                  <div class="shade"></div>
-                </body>
-                </html>
-                """);
+            using var htmlStream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.installer.html")
+                ?? throw new FileNotFoundException("В установщик не встроен installer.html.");
+            using var reader = new StreamReader(htmlStream);
+            var html = await reader.ReadToEndAsync();
+
+            using var logoStream = typeof(SetupForm).Assembly.GetManifestResourceStream("MaoLauncher.Setup.mao-icon.png")
+                ?? throw new FileNotFoundException("В установщик не встроен mao-icon.png.");
+            using var logoBuffer = new MemoryStream();
+            await logoStream.CopyToAsync(logoBuffer);
+            var logoData = Convert.ToBase64String(logoBuffer.ToArray());
+            html = html.Replace("kitty.png", "data:image/png;base64," + logoData, StringComparison.Ordinal);
+
+            _webView.NavigateToString(html);
+            _uiReady = true;
+            SetProgress(0, "Инициализация установщика");
         }
         catch (Exception ex)
         {
-            WriteErrorLog("Не удалось запустить видеофон установщика. Используется статичный фон.", ex);
-            if (!video.IsDisposed)
-            {
-                background.Controls.Remove(video);
-                video.Dispose();
-            }
-            if (ReferenceEquals(_videoBackground, video)) _videoBackground = null;
-            CleanupVideoDirectory();
+            WriteErrorLog("Не удалось открыть новый интерфейс установщика.", ex);
+            throw;
         }
-    }
-
-    private void CleanupVideoBackground()
-    {
-        try { _videoBackground?.Dispose(); } catch { }
-        _videoBackground = null;
-        CleanupVideoDirectory();
-    }
-
-    private void CleanupVideoDirectory()
-    {
-        var directory = _videoDirectory;
-        _videoDirectory = null;
-        if (directory is null) return;
-        try { if (Directory.Exists(directory)) Directory.Delete(directory, true); } catch { }
     }
 
     private static Image? LoadBanner()
@@ -384,7 +239,7 @@ internal sealed class SetupForm : Form
 
         try
         {
-            SetStatus("Подготавливаем ярлык MaoLauncher…");
+            SetStatus("Подготавливаем ярлык MaoLauncher…", "Подготовка установщика");\n            SetProgress(4, "Подготовка установщика");
             var setupExecutable = EnsurePersistentSetupCopy();
             TryCreateDesktopShortcut(setupExecutable);
 
@@ -393,7 +248,7 @@ internal sealed class SetupForm : Form
                 "Programs", "MaoLauncher");
             var installedExe = FindInstalledLauncher(installRoot);
 
-            SetStatus("Проверяем последнюю версию на GitHub…");
+            SetStatus("Проверяем последнюю версию на GitHub…", "Проверка обновлений");\n            SetProgress(10, "Проверка обновлений");
             using var releaseResponse = await Http.GetAsync(
                 $"https://api.github.com/repos/{Repository}/releases/latest",
                 HttpCompletionOption.ResponseHeadersRead, token);
@@ -416,8 +271,8 @@ internal sealed class SetupForm : Form
                 Regex.IsMatch(installedVersion, @"^\d+\.\d+\.\d+$") &&
                 CompareVersions(installedVersion, version) >= 0)
             {
-                SetStatus("Обновлений нет. Запускаем MaoLauncher…");
-                SetProgress(100);
+                SetStatus("Обновлений нет. Запускаем MaoLauncher…", "Уже установлена последняя версия");
+                SetProgress(100, "Готово");
                 Process.Start(new ProcessStartInfo(installedExe)
                 {
                     UseShellExecute = true,
@@ -449,9 +304,9 @@ internal sealed class SetupForm : Form
             var zipPath = Path.Combine(work, archiveName);
 
             SetStatus((installedExe is null ? "Устанавливаем MaoLauncher " : "Доступно обновление. Скачиваем MaoLauncher ") + version + "…");
-            await DownloadFileAsync(archiveUrl, zipPath, token);
+            SetProgress(15, "Получение файлов MaoLauncher");\n            await DownloadFileAsync(archiveUrl, zipPath, token);\n            SetProgress(65, "Загрузка завершена");
 
-            SetStatus("Проверяем SHA-256…");
+            SetStatus("Проверяем SHA-256…", "Проверка целостности загруженного архива");\n            SetProgress(70, "Проверка SHA-256");
             var checksumUrl = checksumAsset.GetProperty("browser_download_url").GetString()!;
             var checksumText = await Http.GetStringAsync(checksumUrl, token);
             var match = Regex.Match(checksumText, @"\b[0-9a-fA-F]{64}\b");
@@ -464,10 +319,10 @@ internal sealed class SetupForm : Form
                     throw new InvalidDataException("SHA-256 архива не совпадает. Установка остановлена.");
             }
 
-            SetStatus("Распаковываем новую версию…");
+            SetStatus("Распаковываем новую версию…", "Подготовка файлов MaoLauncher");\n            SetProgress(72, "Распаковка файлов");
             var extracted = Path.Combine(work, "extracted");
             Directory.CreateDirectory(extracted);
-            ExtractZipSafely(zipPath, extracted);
+            ExtractZipSafely(zipPath, extracted, percent => SetProgress(72 + percent * 16 / 100, "Распаковка файлов MaoLauncher"));
             var executable = Directory.GetFiles(extracted, "MaoLauncher.exe", SearchOption.AllDirectories).FirstOrDefault();
             if (executable is null)
                 throw new InvalidDataException("В архиве не найден MaoLauncher.exe.");
@@ -475,7 +330,7 @@ internal sealed class SetupForm : Form
             if (!await CloseInstalledLauncherAsync(installRoot, token))
                 throw new InvalidOperationException("Перед обновлением закрой MaoLauncher и повторно запусти установщик.");
 
-            SetStatus("Заменяем файлы лаунчера…");
+            SetStatus("Заменяем файлы лаунчера…", "Обновление установленной версии");\n            SetProgress(91, "Обновление файлов");
             var parent = Path.GetDirectoryName(installRoot)!;
             Directory.CreateDirectory(parent);
             var stagedInstall = Path.Combine(parent, "MaoLauncher.new-" + Guid.NewGuid().ToString("N"));
@@ -519,7 +374,7 @@ internal sealed class SetupForm : Form
         }
         catch (Exception ex)
         {
-            SetStatus("Ошибка. Установщик завершает работу…");
+            SetStatus("Ошибка установки", "Подробности сохранены в setup.log");
             WriteErrorLog("Не удалось установить или обновить MaoLauncher.", ex);
         }
         finally
@@ -629,28 +484,42 @@ internal sealed class SetupForm : Form
             if (total is > 0)
             {
                 var percent = (int)Math.Clamp(received * 100 / total.Value, 0, 100);
-                if (!IsDisposed) BeginInvoke(new Action(() => SetProgress(percent)));
+                if (!IsDisposed)
+                {
+                    var mappedPercent = 15 + percent * 50 / 100;
+                    BeginInvoke(new Action(() => SetProgress(mappedPercent, "Загрузка файлов MaoLauncher")));
+                }
             }
         }
     }
 
-    private void SetProgress(int value)
+    private void SetProgress(int value, string? detail = null)
     {
         value = Math.Clamp(value, 0, 100);
-        _progress.Value = value;
-        _percent.Text = value + "%";
+        if (!_uiReady || _webView is null || _webView.IsDisposed) return;
+
+        var safeDetail = JsonSerializer.Serialize(detail ?? "");
+        var script = $"window.setProgress && window.setProgress({value}, {safeDetail});";
+        try { _ = _webView.CoreWebView2.ExecuteScriptAsync(script); } catch { }
     }
 
-    private void SetStatus(string value)
+    private void SetStatus(string value, string? detail = null)
     {
-        if (!IsDisposed && !Disposing && IsHandleCreated) _status.Text = value;
+        if (!_uiReady || _webView is null || _webView.IsDisposed) return;
+        var safeStatus = JsonSerializer.Serialize(value);
+        var safeDetail = JsonSerializer.Serialize(detail ?? "");
+        var script = $"window.setStatus && window.setStatus({safeStatus}, {safeDetail});";
+        try { _ = _webView.CoreWebView2.ExecuteScriptAsync(script); } catch { }
     }
 
-    private static void ExtractZipSafely(string zipPath, string destination)
+    private static void ExtractZipSafely(string zipPath, string destination, Action<int>? progress = null)
     {
         var root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
         using var archive = ZipFile.OpenRead(zipPath);
-        foreach (var entry in archive.Entries)
+        var entries = archive.Entries;
+        var totalEntries = Math.Max(entries.Count, 1);
+        var processedEntries = 0;
+        foreach (var entry in entries)
         {
             var target = Path.GetFullPath(Path.Combine(destination, entry.FullName));
             if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
@@ -662,6 +531,8 @@ internal sealed class SetupForm : Form
             }
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, overwrite: true);
+            processedEntries++;
+            progress?.Invoke(processedEntries * 100 / totalEntries);
         }
     }
 
