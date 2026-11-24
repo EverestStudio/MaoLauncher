@@ -53,11 +53,13 @@ internal sealed class SetupForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         BackColor = Color.FromArgb(9, 10, 14);
+        Resize += (_, _) => UpdateWindowRegion();
+        UpdateWindowRegion();
 
         _webView = new WebView2
         {
             Dock = DockStyle.Fill,
-            DefaultBackgroundColor = BackColor
+            DefaultBackgroundColor = Color.FromArgb(0, 9, 10, 14)
         };
         Controls.Add(_webView);
 
@@ -102,6 +104,14 @@ internal sealed class SetupForm : Form
             File.AppendAllText(path, $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}{error}{Environment.NewLine}");
         }
         catch { }
+    }
+
+    private void UpdateWindowRegion()
+    {
+        if (ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
+        using var path = CreateRoundedPath(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height), 18);
+        Region?.Dispose();
+        Region = new Region(path);
     }
 
     private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
