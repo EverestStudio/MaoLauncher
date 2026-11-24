@@ -239,7 +239,8 @@ internal sealed class SetupForm : Form
 
         try
         {
-            SetStatus("Подготавливаем ярлык MaoLauncher…", "Подготовка установщика");\n            SetProgress(4, "Подготовка установщика");
+            SetStatus("Подготавливаем ярлык MaoLauncher…", "Подготовка установщика");
+            SetProgress(4, "Подготовка установщика");
             var setupExecutable = EnsurePersistentSetupCopy();
             TryCreateDesktopShortcut(setupExecutable);
 
@@ -248,7 +249,8 @@ internal sealed class SetupForm : Form
                 "Programs", "MaoLauncher");
             var installedExe = FindInstalledLauncher(installRoot);
 
-            SetStatus("Проверяем последнюю версию на GitHub…", "Проверка обновлений");\n            SetProgress(10, "Проверка обновлений");
+            SetStatus("Проверяем последнюю версию на GitHub…", "Проверка обновлений");
+            SetProgress(10, "Проверка обновлений");
             using var releaseResponse = await Http.GetAsync(
                 $"https://api.github.com/repos/{Repository}/releases/latest",
                 HttpCompletionOption.ResponseHeadersRead, token);
@@ -304,9 +306,12 @@ internal sealed class SetupForm : Form
             var zipPath = Path.Combine(work, archiveName);
 
             SetStatus((installedExe is null ? "Устанавливаем MaoLauncher " : "Доступно обновление. Скачиваем MaoLauncher ") + version + "…");
-            SetProgress(15, "Получение файлов MaoLauncher");\n            await DownloadFileAsync(archiveUrl, zipPath, token);\n            SetProgress(65, "Загрузка завершена");
+            SetProgress(15, "Получение файлов MaoLauncher");
+            await DownloadFileAsync(archiveUrl, zipPath, token);
+            SetProgress(65, "Загрузка завершена");
 
-            SetStatus("Проверяем SHA-256…", "Проверка целостности загруженного архива");\n            SetProgress(70, "Проверка SHA-256");
+            SetStatus("Проверяем SHA-256…", "Проверка целостности загруженного архива");
+            SetProgress(70, "Проверка SHA-256");
             var checksumUrl = checksumAsset.GetProperty("browser_download_url").GetString()!;
             var checksumText = await Http.GetStringAsync(checksumUrl, token);
             var match = Regex.Match(checksumText, @"\b[0-9a-fA-F]{64}\b");
@@ -319,7 +324,8 @@ internal sealed class SetupForm : Form
                     throw new InvalidDataException("SHA-256 архива не совпадает. Установка остановлена.");
             }
 
-            SetStatus("Распаковываем новую версию…", "Подготовка файлов MaoLauncher");\n            SetProgress(72, "Распаковка файлов");
+            SetStatus("Распаковываем новую версию…", "Подготовка файлов MaoLauncher");
+            SetProgress(72, "Распаковка файлов");
             var extracted = Path.Combine(work, "extracted");
             Directory.CreateDirectory(extracted);
             ExtractZipSafely(zipPath, extracted, percent => SetProgress(72 + percent * 16 / 100, "Распаковка файлов MaoLauncher"));
@@ -330,7 +336,8 @@ internal sealed class SetupForm : Form
             if (!await CloseInstalledLauncherAsync(installRoot, token))
                 throw new InvalidOperationException("Перед обновлением закрой MaoLauncher и повторно запусти установщик.");
 
-            SetStatus("Заменяем файлы лаунчера…", "Обновление установленной версии");\n            SetProgress(91, "Обновление файлов");
+            SetStatus("Заменяем файлы лаунчера…", "Обновление установленной версии");
+            SetProgress(91, "Обновление файлов");
             var parent = Path.GetDirectoryName(installRoot)!;
             Directory.CreateDirectory(parent);
             var stagedInstall = Path.Combine(parent, "MaoLauncher.new-" + Guid.NewGuid().ToString("N"));
