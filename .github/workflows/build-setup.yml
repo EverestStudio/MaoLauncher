@@ -1,0 +1,31 @@
+name: Build MaoLauncher Setup
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "MaoLauncher-Setup/**"
+      - ".github/workflows/build-setup.yml"
+  push:
+    branches: [main]
+    paths:
+      - "MaoLauncher-Setup/**"
+      - ".github/workflows/build-setup.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore
+        run: dotnet restore MaoLauncher-Setup/MaoLauncher.Setup.csproj
+      - name: Build
+        run: dotnet build MaoLauncher-Setup/MaoLauncher.Setup.csproj --configuration Release --no-restore
