@@ -101,20 +101,35 @@ function syncStreams(){
 }
 new MutationObserver(syncStreams).observe(liveList,{subtree:true,childList:true,characterData:true});
 $('refreshTwitchStreams').click();setInterval(()=>$('refreshTwitchStreams').click(),180000);
-const legacyNews=$('homeNews'),newsList=document.querySelector('#homePage .news-list');
+const legacyNews=$('homeNews'),legacyAllNews=$('allNews');
+const newsList=document.querySelector('#homePage .news-list'),newsGrid=document.querySelector('#newsPage .news-grid');
+function makeVisibleNewsCard(item,index,compact=false){
+ const article=document.createElement('article');article.className=compact?'news':'news-card';
+ const cover=item.querySelector('.newsCover img');
+ if(cover){const image=document.createElement('img');image.src=cover.src;image.alt='';image.className='news-card-cover';article.append(image)}
+ const content=document.createElement('div'),heading=document.createElement(compact?'h3':'h2'),description=document.createElement('p');
+ heading.textContent=item.querySelector('h3,h2')?.textContent||'Новости MaoPickMe';
+ const body=item.querySelector('.newsBody');
+ const tag=item.querySelector('.tag');
+ if(!compact&&tag){const label=document.createElement('span');label.className='news-tag';label.textContent=tag.textContent;content.append(label)}
+ description.textContent=body?.textContent||item.querySelector('p')?.textContent||'';
+ content.append(heading);if(description.textContent)content.append(description);
+ article.append(content);
+ if(compact){
+  const date=document.createElement('div');date.className='news-date';date.textContent='NEWS';article.prepend(date);
+  const homeItem=legacyNews.querySelectorAll('[data-home-news-index]')[index];
+  if(homeItem){article.tabIndex=0;article.setAttribute('role','button');article.addEventListener('click',()=>homeItem.click());article.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();homeItem.click()}})}
+ }
+ return article;
+}
 function syncNews(){
- const items=[...legacyNews.querySelectorAll('.news')];
- if(!items.length)return;
- newsList.replaceChildren(...items.slice(0,3).map(item=>{
-  const article=document.createElement('article');article.className='news';
-  const copy=document.createElement('div');copy.className='news-date';copy.textContent='NEWS';
-  const content=document.createElement('div'),h=document.createElement('h3'),p=document.createElement('p');
-  h.textContent=item.querySelector('h3')?.textContent||'Новости MaoPickMe';
-  p.textContent=item.querySelector('p')?.textContent||'';
-  content.append(h,p);article.append(copy,content);return article;
- }));
+ const homeItems=[...legacyNews.querySelectorAll('.newsCard,[data-home-news-index],.newsEmpty')];
+ const allItems=[...legacyAllNews.querySelectorAll('.newsCard,.newsEmpty')];
+ if(homeItems.length)newsList.replaceChildren(...homeItems.slice(0,3).map((item,index)=>makeVisibleNewsCard(item,index,true)));
+ if(allItems.length)newsGrid.replaceChildren(...allItems.map((item,index)=>makeVisibleNewsCard(item,index,false)));
 }
 new MutationObserver(syncNews).observe(legacyNews,{subtree:true,childList:true,characterData:true});
+new MutationObserver(syncNews).observe(legacyAllNews,{subtree:true,childList:true,characterData:true});
 syncServer();syncProfile();syncNews();
 $('redesignToast').setAttribute('aria-live','polite');
 })();
