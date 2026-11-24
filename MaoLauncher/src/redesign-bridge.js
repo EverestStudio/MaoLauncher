@@ -32,13 +32,13 @@ document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',(
  $('accountForm').hidden=!account;
  if(account)$('accountStatus').textContent='Вход Ely.by в текущей версии не подключён. Используйте офлайн-профиль.';
 }));
+const supportWatch=new MutationObserver(()=>{$('supportStatus').textContent=$('supportFormHint').textContent});
+supportWatch.observe($('supportFormHint'),{childList:true,subtree:true,characterData:true});
 $('supportForm').addEventListener('submit',e=>{
  e.preventDefault();
  $('supportSubject').value=$('supportTitle').value;
  $('supportMessage').value=$('supportDescription').value;
  $('supportSend').click();
- const watch=new MutationObserver(()=>{$('supportStatus').textContent=$('supportFormHint').textContent});
- watch.observe($('supportFormHint'),{childList:true,subtree:true,characterData:true});
 });
 const syncPairs=[
  ['memoryRange','memorySetting','input'],['memoryInput','memoryManual','change'],
@@ -53,10 +53,17 @@ for(const [from,to,eventName] of syncPairs){
 }
 $('openGameFolder').addEventListener('click',()=> $('openFolder').click());
 $('redesignChangeGameFolder').addEventListener('click',()=> $('changeGameFolder').click());
-$('openConsole').addEventListener('click',()=>{showPage('settings');$('checkUpdates').click()});
-const oldName=$('profileName'),newName=$('redesignProfileName'),avatar=$('profileAvatar');
-const syncProfile=()=>{newName.textContent=oldName.value||'Создать профиль';$('profileStatus').textContent=oldName.value?'Профиль выбран':'Не выбран';if(oldName.value)avatar.src='https://mc-heads.net/avatar/'+encodeURIComponent(oldName.value)+'/64'};
-new MutationObserver(syncProfile).observe(oldName,{childList:true,subtree:true,characterData:true});
+$('openConsole').addEventListener('click',()=>{$('consoleOutput').textContent=$('gameConsole').textContent;$('launcherConsole').showModal()});
+new MutationObserver(()=>{if($('launcherConsole').open)$('consoleOutput').textContent=$('gameConsole').textContent}).observe($('gameConsole'),{childList:true,characterData:true,subtree:true});
+const newName=$('redesignProfileName'),avatar=$('profileAvatar'),profileButton=document.querySelector('#legacyLauncher .profileDockMount .profileNav');
+const syncProfile=()=>{
+ const name=profileButton?.querySelector('.profileNickname')?.textContent?.trim()||'';
+ const type=profileButton?.querySelector('.profileType')?.textContent?.trim()||'';
+ newName.textContent=name||'Создать профиль';$('profileStatus').textContent=name?type:'Не выбран';
+ const image=profileButton?.querySelector('.profileButtonAvatar');
+ if(image?.src)avatar.src=image.src;else avatar.removeAttribute('src');
+};
+new MutationObserver(syncProfile).observe(profileButton,{childList:true,subtree:true,attributes:true});
 const serverPairs=[['serverStatus','serverPlayers'],['serverStatusDot','serverPing'],['serverClientVersion','serverTps']];
 function syncServer(){
  const oldStatus=$('serverStatus'),oldPlayers=$('players'),oldPing=$('ping'),oldVersion=$('gameVersion');
