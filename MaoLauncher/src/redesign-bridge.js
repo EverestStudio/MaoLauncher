@@ -6,7 +6,7 @@ const legacyRoot=$('legacyLauncher');
 const pageIds={home:'homePage',news:'newsPage',map:'mapPage',support:'supportPage',settings:'settingsPage'};
 function showPage(key){
  const target=pageIds[key];
- if(!target)return;
+ if(!target&&key!=='profile')return;
  for(const id of Object.values(pageIds))$(id).hidden=id!==target;
  $('profilePage').hidden=key!=='profile';
  $('content').scrollTo({top:0,behavior:'smooth'});
