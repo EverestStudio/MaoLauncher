@@ -347,14 +347,20 @@ newsDetailOverlay.querySelector('.newsDetailClose').addEventListener('click', ()
 newsDetailOverlay.addEventListener('click', event => { if (event.target === newsDetailOverlay) newsDetailOverlay.classList.remove('open'); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') newsDetailOverlay.classList.remove('open'); });
 const sidebar = document.querySelector('aside');
-let sidebarResizePending = false;
-async function setSidebarExpanded(expanded) {
-  if (document.body.classList.contains('sidebar-expanded') === expanded || sidebarResizePending) return;
-  sidebarResizePending = true;
+let sidebarExpanded = document.body.classList.contains('sidebar-expanded');
+let sidebarResizeQueue = Promise.resolve();
+function setSidebarExpanded(expanded) {
+  if (sidebarExpanded === expanded) return sidebarResizeQueue;
+  sidebarExpanded = expanded;
   document.body.classList.toggle('sidebar-expanded', expanded);
-  try { await window.launcher.setSidebarExpanded(expanded); }
-  catch (error) { document.body.classList.toggle('sidebar-expanded', !expanded); notify(error.message, true); }
-  finally { sidebarResizePending = false; }
+  sidebarResizeQueue = sidebarResizeQueue.then(() => window.launcher.setSidebarExpanded(expanded)).catch(error => {
+    if (sidebarExpanded === expanded) {
+      sidebarExpanded = !expanded;
+      document.body.classList.toggle('sidebar-expanded', !expanded);
+    }
+    notify(error.message, true);
+  });
+  return sidebarResizeQueue;
 }
 sidebar?.addEventListener('mouseenter', () => setSidebarExpanded(true));
 sidebar?.addEventListener('mouseleave', () => setSidebarExpanded(false));
