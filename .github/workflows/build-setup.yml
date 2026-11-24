@@ -28,7 +28,7 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Restore
-        run: dotnet restore MaoLauncher-Setup/MaoLauncher.Setup.csproj
+        run: dotnet restore MaoLauncher-Setup/MaoLauncher.Setup.csproj --runtime win-x64
 
       - name: Build
         run: dotnet build MaoLauncher-Setup/MaoLauncher.Setup.csproj --configuration Release --no-restore
