@@ -346,8 +346,18 @@ byId('homeNews')?.addEventListener('keydown', event => {
 newsDetailOverlay.querySelector('.newsDetailClose').addEventListener('click', () => newsDetailOverlay.classList.remove('open'));
 newsDetailOverlay.addEventListener('click', event => { if (event.target === newsDetailOverlay) newsDetailOverlay.classList.remove('open'); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') newsDetailOverlay.classList.remove('open'); });
-const sidebarToggle = byId('sidebarToggle');
-sidebarToggle?.addEventListener('click', async () => { const expanded = !document.body.classList.contains('sidebar-expanded'); document.body.classList.toggle('sidebar-expanded', expanded); sidebarToggle.setAttribute('aria-expanded', String(expanded)); sidebarToggle.setAttribute('aria-label', expanded ? 'Свернуть меню' : 'Развернуть меню'); sidebarToggle.title = expanded ? 'Свернуть меню' : 'Развернуть меню'; sidebarToggle.textContent = expanded ? '‹' : '☰'; try { await window.launcher.setSidebarExpanded(expanded); } catch (error) { notify(error.message, true); } });
+const sidebar = document.querySelector('aside');
+let sidebarResizePending = false;
+async function setSidebarExpanded(expanded) {
+  if (document.body.classList.contains('sidebar-expanded') === expanded || sidebarResizePending) return;
+  sidebarResizePending = true;
+  document.body.classList.toggle('sidebar-expanded', expanded);
+  try { await window.launcher.setSidebarExpanded(expanded); }
+  catch (error) { document.body.classList.toggle('sidebar-expanded', !expanded); notify(error.message, true); }
+  finally { sidebarResizePending = false; }
+}
+sidebar?.addEventListener('mouseenter', () => setSidebarExpanded(true));
+sidebar?.addEventListener('mouseleave', () => setSidebarExpanded(false));
 const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }, { name: 'tomskiybtw', url: 'https://www.twitch.tv/tomskiybtw' }];
 let twitchRefreshPromise = null;
 async function readTwitchStreamer(streamer, status) {
