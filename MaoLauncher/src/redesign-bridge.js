@@ -85,6 +85,22 @@ const progressObserver=new MutationObserver(()=>{
 progressObserver.observe($('progressWrap'),{attributes:true});
 progressObserver.observe($('progressBar'),{attributes:true});
 new MutationObserver(()=>{if($('playButton').disabled)$('play').disabled=true;else $('play').disabled=false;$('play').querySelector('span').textContent=$('playButton').textContent.includes('Играть')?'▶':'↻'}).observe($('playButton'),{attributes:true,childList:true,characterData:true});
+const liveList=$('liveStreams'),visibleStreams=document.querySelector('#homePage .streams');
+function syncStreams(){
+ const cards=[...liveList.querySelectorAll('.liveStreamCard')];
+ if(!cards.length){visibleStreams.textContent='Сейчас нет активных трансляций.';return}
+ visibleStreams.replaceChildren(...cards.map(card=>{
+  const button=document.createElement('button');button.type='button';button.className='stream';button.style.cssText='width:100%;text-align:left;cursor:pointer';
+  const title=document.createElement('div');title.className='stream-thumb';title.textContent='▶';
+  const info=document.createElement('div'),live=document.createElement('div'),name=document.createElement('div'),meta=document.createElement('div');
+  live.className='live';live.textContent='LIVE';name.className='stream-name';name.textContent=card.querySelector('strong')?.textContent||'Трансляция';
+  meta.className='stream-meta';meta.textContent=card.querySelector('small')?.textContent||'';
+  info.append(live,name,meta);button.append(title,info);
+  button.addEventListener('click',()=>card.click());return button;
+ }));
+}
+new MutationObserver(syncStreams).observe(liveList,{subtree:true,childList:true,characterData:true});
+$('refreshTwitchStreams').click();setInterval(()=>$('refreshTwitchStreams').click(),180000);
 const legacyNews=$('homeNews'),newsList=document.querySelector('#homePage .news-list');
 function syncNews(){
  const items=[...legacyNews.querySelectorAll('.news')];
