@@ -1,0 +1,1 @@
+SEE_LOCAL_SOURCE: desktop/ping.cjs

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.log
+*-check.png
+*-check.cjs
+desktop-check.png
+map-check.png
+masked-shine-check.png
+shine-check.png
+slideshow-check.png
+v011-check.png
+v013-check.png
+release-keys/
