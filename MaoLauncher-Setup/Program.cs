@@ -392,6 +392,7 @@ internal sealed class SetupForm : Form
             try { if (Directory.Exists(backup)) Directory.Delete(backup, true); } catch { }
 
             TryCreateDesktopShortcut(setupExecutable);
+            TryCreateUninstallShortcut(setupExecutable);
             SetStatus("Готово! Запускаем MaoLauncher…");
             SetProgress(100);
             Process.Start(new ProcessStartInfo(installedExe)
