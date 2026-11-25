@@ -15,9 +15,14 @@ namespace MaoLauncher.Setup;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+        if (args.Any(arg => string.Equals(arg, "--uninstall", StringComparison.OrdinalIgnoreCase)))
+        {
+            Uninstaller.Run();
+            return;
+        }
         Application.Run(new SetupForm());
     }
 }
@@ -264,6 +269,7 @@ internal sealed class SetupForm : Form
             SetProgress(4, "Подготовка установщика");
             var setupExecutable = EnsurePersistentSetupCopy();
             TryCreateDesktopShortcut(setupExecutable);
+            TryCreateUninstallShortcut(setupExecutable);
 
             var installRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -562,6 +568,25 @@ internal sealed class SetupForm : Form
             processedEntries++;
             progress?.Invoke(processedEntries * 100 / totalEntries);
         }
+    }
+
+    private static void TryCreateUninstallShortcut(string setupExecutable)
+    {
+        try
+        {
+            var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var shortcutPath = Path.Combine(desktop, "Удалить MaoLauncher.lnk");
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType is null) return;
+            dynamic shell = Activator.CreateInstance(shellType)!;
+            dynamic shortcut = shell.CreateShortcut(shortcutPath);
+            shortcut.TargetPath = setupExecutable;
+            shortcut.Arguments = "--uninstall";
+            shortcut.WorkingDirectory = Path.GetDirectoryName(setupExecutable);
+            shortcut.Description = "Удаление MaoLauncher и установленных игровых файлов";
+            shortcut.Save();
+        }
+        catch { }
     }
 
     private static void TryCreateDesktopShortcut(string setupExecutable)
