@@ -11,7 +11,16 @@ internal static class Uninstaller
         var roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var installRoot = Path.Combine(localAppData, "Programs", "MaoLauncher");
         var setupRoot = Path.Combine(localAppData, "Programs", "MaoLauncherSetup");
-        var userData = Path.Combine(roamingAppData, "MaoLauncher");
+        // Electron's userData folder normally follows package.json "name" (mao-launcher),
+        // while packaged builds may use the product name (MaoLauncher).
+        var userDataCandidates = new[]
+        {
+            Path.Combine(roamingAppData, "mao-launcher"),
+            Path.Combine(roamingAppData, "MaoLauncher")
+        };
+        var userData = userDataCandidates.FirstOrDefault(path => File.Exists(Path.Combine(path, "settings.json")))
+            ?? userDataCandidates.FirstOrDefault(Directory.Exists)
+            ?? userDataCandidates[0];
         var defaultGame = Path.Combine(userData, "game");
         var customGameDirectory = ReadCustomGameDirectory(userData);
         var hasCustomGame = !string.IsNullOrWhiteSpace(customGameDirectory)
