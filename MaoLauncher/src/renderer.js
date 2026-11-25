@@ -176,6 +176,7 @@ function applySnowfall() {
     snowfallCanvas = document.createElement('canvas');
     snowfallCanvas.className = 'snowfallCanvas';
     snowfallCanvas.setAttribute('aria-hidden', 'true');
+    snowfallCanvas.style.cssText = 'position:fixed;inset:0;display:block;pointer-events:none;z-index:0;margin:0;padding:0;border:0;';
     document.body.prepend(snowfallCanvas);
     snowfallContext = snowfallCanvas.getContext('2d', { alpha: true });
     resizeSnowfall();
