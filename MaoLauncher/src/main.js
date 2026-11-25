@@ -423,7 +423,7 @@ async function startLocalWebServer() {
 }
 async function createWindow() {
   const port = await startLocalWebServer();
-  mainWindow = new BrowserWindow({ width: 1120, height: 820, minWidth: 1120, maxWidth: 1280, minHeight: 820, maxHeight: 820, resizable: false, maximizable: false, title: 'MaoLauncher', icon: path.join(__dirname, 'assets', 'mao-icon.png'), backgroundColor: '#100e16', frame: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  mainWindow = new BrowserWindow({ width: 1264, height: 834, minWidth: 1264, maxWidth: 1264, minHeight: 834, maxHeight: 834, resizable: false, maximizable: false, title: 'MaoLauncher', icon: path.join(__dirname, 'assets', 'mao-icon.png'), backgroundColor: '#100e16', frame: false, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { if (url.startsWith('https://')) shell.openExternal(url); return { action: 'deny' }; });
   await mainWindow.loadURL('http://127.0.0.1:' + port + '/');
@@ -668,7 +668,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('launcher:version', () => LAUNCHER_VERSION);
   ipcMain.handle('server:status', () => serverStatus());
   ipcMain.handle('twitch:status', () => fetchTwitchStreams());
-  ipcMain.handle('window:sidebar-expanded', (_event, expanded) => { if (!mainWindow || mainWindow.isDestroyed()) return false; mainWindow.setSize(expanded ? 1280 : 1120, 820, true); return true; });
+  ipcMain.handle('window:sidebar-expanded', (_event, expanded) => { if (!mainWindow || mainWindow.isDestroyed()) return false; mainWindow.setSize(1264, 834, true); return true; });
   ipcMain.handle('window:action', (_event, action) => {
     if (!mainWindow) return false;
     if (action === 'minimize') {
