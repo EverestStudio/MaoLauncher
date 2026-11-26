@@ -6,8 +6,6 @@ Electron desktop launcher for the MaoPickMe Minecraft server.
 
 - One-click Minecraft Java Edition **26.2** launch with Fabric Loader and bundled Java 25
 - First launch automatically downloads the official game files, Fabric libraries, assets, and required runtime
-
-- Minecraft and Fabric installation and launch
 - Managed Fabric mod downloads with integrity checks
 - Multiple offline profiles and Minecraft skin preview
 - Live server player count and client ping
@@ -41,4 +39,4 @@ Before publishing, `npm run test:game` performs a clean installation preflight f
 
 ## GitHub Actions
 
-The workflow in `.github/workflows/release.yml` builds on Windows using manual dispatch (Artifacts) or a `vX.Y.Z` tag (signed GitHub Release). The tag must match `package.json`. A release requires the repository secret `MAO_RELEASE_PRIVATE_KEY`, matching the public key in `github-release.json`. No private key is included. See the bundle's `GITHUB-SETUP.md` for repository layout and initial setup.
+`.github/workflows/build-launcher.yml` builds the Windows launcher and installer on pushes and pull requests. `.github/workflows/release.yml` publishes a versioned Windows x64 release when manually started from Actions with a version such as `1.4.10`. It runs the Minecraft 26.2 / Fabric / Java 25 installation preflight before packaging the launcher ZIP, SHA-256 checksum, and setup EXE.
