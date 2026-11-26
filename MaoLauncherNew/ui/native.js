@@ -19,10 +19,9 @@
  document.getElementById('minimize').onclick=()=>native.minimize().catch(e=>notify(e.message));document.getElementById('close').onclick=()=>native.close();
  const launcherVersionValue=document.getElementById('launcherVersionValue');if(launcherVersionValue)launcherVersionValue.textContent='Установлена: '+appVersion+(info.latestVersion?' · Последняя: '+info.latestVersion:'');
  document.querySelectorAll('.side-version').forEach(el=>el.lastElementChild.textContent=appVersion);
- function updateFolder(dir){const el=document.getElementById('gameFolderPath');if(el)el.textContent=dir}
- const folderButton=document.getElementById('openGameFolder');let folderPath=document.createElement('p');folderPath.id='gameFolderPath';folderPath.style.cssText='font-size:12px;color:var(--muted);overflow-wrap:anywhere';folderButton.parentElement.after(folderPath);updateFolder(info.gameDir);
- for(const id of ['openGameFolder','changeGameFolder']){const old=document.getElementById(id);old.replaceWith(old.cloneNode(true))}
- document.getElementById('openGameFolder').onclick=()=>native.openFolder().catch(e=>notify(e.message));document.getElementById('changeGameFolder').onclick=()=>native.chooseFolder().then(updateFolder).catch(e=>notify(e.message));
+ function updateFolder(dir){const value=String(dir||'');const el=document.getElementById('gameFolderPath');if(el)el.textContent=value;const input=document.getElementById('gameDirectory');if(input)input.value=value}
+ updateFolder(info.gameDir);
+ document.getElementById('openGameFolder').onclick=()=>native.openFolder().catch(e=>notify('Не удалось открыть папку игры: '+e.message));document.getElementById('changeGameFolder').onclick=()=>native.chooseFolder().then(dir=>{updateFolder(dir);return persist()}).catch(e=>notify('Не удалось изменить папку игры: '+e.message));
  words.en.folderHelp='Game files are stored in the selected folder.';words.ru.folderHelp='Файлы игры хранятся в выбранной папке.';words.en.autosave='Settings are saved automatically.';words.ru.autosave='Настройки сохраняются автоматически.';words.ru.minimizeHelp='Выбранный способ применяется при нажатии кнопки сворачивания.';words.en.minimizeHelp='Applies when you press the minimize button.';applyLanguage();
  document.getElementById('openConsole').onclick=async()=>{const output=document.getElementById('consoleOutput');output.textContent=await native.logs();consoleDialog.showModal();output.scrollTop=output.scrollHeight};
  const gameLabel=launchButton.innerHTML;let running=false;
@@ -53,7 +52,7 @@
  let skinRequest=0,skinTimer;const skinPreview=document.getElementById('skinPreview');function showFaceHint(text){skinPreview.replaceChildren();const hint=document.createElement('span');hint.className='skin-placeholder';hint.textContent=text;skinPreview.append(hint)}
  document.getElementById('nickname').addEventListener('input',()=>{clearTimeout(skinTimer);const request=++skinRequest,name=document.getElementById('nickname').value.trim();if(!/^[A-Za-z0-9_]{3,16}$/.test(name)){showFaceHint('Введи ник для просмотра скина');return}showFaceHint('Поиск скина…');skinTimer=setTimeout(async()=>{const face=await native.skinFace(name);if(request!==skinRequest)return;if(!face){showFaceHint('Лицензионный скин не найден');return}const img=document.createElement('img');img.alt='Лицо скина '+name;img.src=face;skinPreview.replaceChildren(img)},500)});
  renderProfiles();
- const mapFrame=document.getElementById('serverMapFrame'),mapUrl='http://135.181.126.154:25602/';function loadMap(){if(!mapFrame.getAttribute('src'))mapFrame.src=mapUrl}document.querySelector('[data-page="map"]').addEventListener('click',loadMap);document.getElementById('mapRefresh').onclick=()=>{mapFrame.src=mapUrl+'?refresh='+Date.now()};const openMapExternal=document.getElementById('openMapExternal');if(openMapExternal)openMapExternal.onclick=()=>native.openMap().catch(e=>notify(e.message));
+ const mapFrame=document.getElementById('serverMapFrame'),mapUrl='http://135.181.126.154:25602/';function loadMap(){if(!mapFrame.getAttribute('src'))mapFrame.src=mapUrl}document.querySelector('[data-page="map"]').addEventListener('click',loadMap);document.getElementById('mapRefresh').onclick=()=>{mapFrame.src=mapUrl+'?refresh='+Date.now()};
 
 
  // Add-ons catalogue: Modrinth-backed mods, resource packs and shaders.
