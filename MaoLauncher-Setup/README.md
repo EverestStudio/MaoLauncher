@@ -1,36 +1,37 @@
 # MaoLauncher Setup
 
-Небольшой Windows bootstrapper: получает последний GitHub Release репозитория
-EverestStudio/MaoLauncher, скачивает ZIP, проверяет SHA-256, устанавливает приложение в
-`%LOCALAPPDATA%\Programs\MaoLauncher`, создаёт ярлык на рабочем столе и запускает лаунчер.
+Windows bootstrapper для репозитория `EverestStudio/MaoLauncher`.
 
-## Требования к GitHub Release
+При каждом запуске установщик:
 
-В каждом релизе должны быть два assets с одинаковой базовой частью имени:
+1. Запрашивает последний опубликованный GitHub Release.
+2. Сравнивает его версию с установленной.
+3. Если версия новее или лаунчер ещё не установлен — скачивает ZIP `MaoLauncher-X.Y.Z-win-x64.zip`.
+4. Скачивает соответствующий файл `.sha256` и проверяет SHA-256 архива.
+5. Безопасно распаковывает архив, заменяет файлы лаунчера с резервной копией и запускает новую версию.
+6. Если обновлений нет — запускает уже установленный MaoLauncher.
 
-- `MaoLauncher-1.0.0-win-x64.zip`
-- `MaoLauncher-1.0.0-win-x64.zip.sha256`
+Установка выполняется в `%LOCALAPPDATA%\Programs\MaoLauncher`. Настройки и игровые файлы хранятся отдельно от папки приложения.
 
-Файл `.sha256` должен содержать 64-символьный SHA-256 архива (допускается стандартная строка sha256sum с именем файла).
+## Сборка
 
-## Сборка bootstrapper
-
-На Windows с установленным .NET 10 SDK:
+Требуется Windows и .NET 10 SDK:
 
 ```powershell
 dotnet publish .\MaoLauncher.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-Готовый EXE будет в `bin\Release\net10.0-windows\win-x64\publish\MaoLauncher-Setup.exe`.
+Исходники интерфейса установщика находятся в этой папке. Иконки и фоновое изображение берутся из `MaoLauncherNew/assets`.
 
-Это исходный прототип. Для полноценной проверки нужно добавить исходники MaoLauncher и опубликовать первый совместимый GitHub Release.
+## Публикация релиза
 
-## Видео-фон установщика
+Основной workflow `.github/workflows/release.yml` собирает лаунчер из `MaoLauncherNew`, упаковывает `win-unpacked` в ZIP, создаёт SHA-256 и публикует этот архив вместе с `MaoLauncher-Setup.exe`.
 
-Файл `MaoLauncher/src/assets/background.mp4` встраивается в EXE установщика.
-На старте он извлекается во временную папку и воспроизводится через WebView2:
-автозапуск, без звука, по кругу, с масштабированием `cover`. Интерфейс установщика
-остаётся поверх видео. Если WebView2 Runtime недоступен, установщик использует
-статичный `background_main.jpg`.
+Чтобы выпустить новую версию, создай и отправь тег вида `v2.0.0` (номер должен быть больше предыдущего релиза):
 
-Для воспроизведения требуется установленный Microsoft Edge WebView2 Runtime.
+```powershell
+git tag v2.0.0
+git push origin v2.0.0
+```
+
+Установщик использует публичный GitHub Releases API и не требует токена или приватного ключа на компьютере пользователя.
