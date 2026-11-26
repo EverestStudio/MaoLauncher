@@ -1,0 +1,12 @@
+/* Snow stays above panel backgrounds and below controls. */
+.snow-host{position:relative;isolation:isolate}
+.snow-host>.panel-snow{position:absolute!important;inset:0;z-index:0!important;pointer-events:none;overflow:hidden;border-radius:inherit}
+.snow-host>:not(.panel-snow):not(.hero-slideshow){z-index:1}
+.panel-snow .snow-flake{position:absolute;top:-25px;color:#dcefff;opacity:.38;animation-name:launcherSnowfall;animation-timing-function:linear;animation-iteration-count:infinite}
+.panel-snow[hidden]{display:none!important}
+html[data-theme=light] .panel-snow .snow-flake{color:#6983a4;opacity:.5}
+#launcherSidebar{overflow:visible!important}
+#sidebarToggle{pointer-events:auto;-webkit-app-region:no-drag;cursor:pointer}
+.profile-popup{max-width:calc(100vw - 28px);overscroll-behavior:contain}
+#gameSettings input,#gameSettings textarea,#gameSettings button{pointer-events:auto;-webkit-app-region:no-drag}
+@media(prefers-reduced-motion:reduce){.panel-snow .snow-flake{animation-duration:30s!important}}
