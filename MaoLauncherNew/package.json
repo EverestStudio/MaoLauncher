@@ -33,6 +33,7 @@
       "main.cjs",
       "preload.cjs",
       "game.cjs",
+      "download-progress.cjs",
       "ping.cjs",
       "release.json",
       "package.json",
