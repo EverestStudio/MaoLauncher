@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Номер новой версии (например, 2.0.0 или v2.0.0)"
+        description: "Номер новой версии (например, 1.4.10 или v1.4.10)"
         required: true
         type: string
 
