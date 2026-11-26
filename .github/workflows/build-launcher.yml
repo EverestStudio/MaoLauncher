@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - "MaoLauncherNew/**"
+      - "MaoLauncher-Setup/**"
       - ".github/workflows/build-launcher.yml"
   workflow_dispatch:
 
