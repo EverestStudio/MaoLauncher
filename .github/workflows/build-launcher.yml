@@ -4,12 +4,12 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "MaoLauncher/**"
+      - "MaoLauncherNew/**"
       - ".github/workflows/build-launcher.yml"
   push:
     branches: [main]
     paths:
-      - "MaoLauncher/**"
+      - "MaoLauncherNew/**"
       - ".github/workflows/build-launcher.yml"
   workflow_dispatch:
 
@@ -26,26 +26,34 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22.12.0"
+          node-version: "22"
           cache: npm
-          cache-dependency-path: MaoLauncher/package-lock.json
-
-      - name: Sync package lock
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-        working-directory: MaoLauncher
+          cache-dependency-path: MaoLauncherNew/package-lock.json
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-        working-directory: MaoLauncher
+        working-directory: MaoLauncherNew
 
-      - name: Build Windows ZIP
-        run: npm run dist:win
-        working-directory: MaoLauncher
+      - name: Check JavaScript syntax
+        shell: pwsh
+        run: |
+          node --check main.cjs
+          node --check preload.cjs
+          node --check game.cjs
+          node --check ping.cjs
+          node --check mods.cjs
+        working-directory: MaoLauncherNew
+
+      - name: Build Windows launcher
+        run: npm run build:win
+        working-directory: MaoLauncherNew
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: MaoLauncher-windows
-          path: MaoLauncher/dist/*.zip
+          path: MaoLauncherNew/dist/**
           if-no-files-found: error
           retention-days: 14
