@@ -1,9 +1,12 @@
 name: Build and publish MaoLauncher
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Номер новой версии (например, 2.0.0 или v2.0.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -15,24 +18,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate version and prepare release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $inputVersion = $env:INPUT_VERSION.Trim()
+          $version = $inputVersion.TrimStart('v', 'V')
+          if ($version -notmatch '^\\d+\\.\\d+\\.\\d+$') {
+            throw "Version must use semantic format X.Y.Z, for example 2.0.0."
+          }
+          $tag = "v$version"
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Release $tag already exists. Choose a new version."
+          }
+
+          $latestJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $latestJson) {
+            $latest = ($latestJson | ConvertFrom-Json).tag_name.TrimStart('v', 'V')
+            if ($latest -match '^\\d+\\.\\d+\\.\\d+$' -and [version]$version -le [version]$latest) {
+              throw "Version $version must be greater than the latest published version $latest."
+            }
+          }
+
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+          "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: MaoLauncherNew/package-lock.json
 
-      - name: Set launcher version from tag
+      - name: Set launcher version
         shell: pwsh
-        run: |
-          $tag = $env:GITHUB_REF_NAME
-          $version = $tag.TrimStart('v', 'V')
-          if ($version -notmatch '^\d+\.\d+\.\d+$') {
-            throw "Release tag must look like v2.0.0."
-          }
-          npm version $version --no-git-tag-version --prefix MaoLauncherNew
+        run: npm version "$env:RELEASE_VERSION" --no-git-tag-version --prefix MaoLauncherNew
 
       - name: Install launcher dependencies
         working-directory: MaoLauncherNew
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Check JavaScript syntax
         working-directory: MaoLauncherNew
@@ -43,6 +70,7 @@ jobs:
           node --check game.cjs
           node --check ping.cjs
           node --check mods.cjs
+          node --check addons.cjs
 
       - name: Build Windows x64 launcher
         working-directory: MaoLauncherNew
@@ -50,7 +78,7 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Package portable launcher and calculate checksum
+      - name: Package launcher and calculate SHA-256
         shell: pwsh
         working-directory: MaoLauncherNew
         run: |
@@ -84,9 +112,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $tag = $env:GITHUB_REF_NAME
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            throw "Release $tag already exists. Use a new version tag; existing releases are never overwritten."
-          }
-          gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --repo $env:GITHUB_REPOSITORY --title "MaoLauncher $tag" --notes "Automated Windows x64 release of MaoLauncher and its auto-updating installer." --latest
+          gh release create "$env:RELEASE_TAG" "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "MaoLauncher $env:RELEASE_TAG" --notes "Automated Windows x64 release of MaoLauncher and its auto-updating installer." --latest
