@@ -40,7 +40,7 @@ async function installAddon(root, type, projectId, emit = () => {}) {
   const url = new URL(file.url);
   if (url.protocol !== 'https:' || url.hostname !== 'cdn.modrinth.com') throw new Error('Недопустимый адрес файла');
   const filename = path.basename(file.filename || url.pathname);
-  if (!filename || filename !== file.filename || !/^[\w .()+-]+\.(jar|zip)$/i.test(filename)) throw new Error('Некорректное имя файла');
+  if (!filename || filename !== file.filename || /[<>:"/\\|?*\x00-\x1f]/.test(filename) || !/\.(jar|zip)$/i.test(filename)) throw new Error('Некорректное имя файла');
   emit({ stage: 'Загрузка ' + filename, percent: 0 });
   const response = await fetch(url, { signal: AbortSignal.timeout(120000) });
   if (!response.ok) throw new Error('Не удалось скачать файл (' + response.status + ')');
