@@ -3,3 +3,4 @@ require('./scripts/desktop-controls.cjs');
 require('./scripts/addons-profile.cjs');
 require('./scripts/community.cjs');
 require('./scripts/onboarding.cjs');
+require('./scripts/news.cjs');
