@@ -13,7 +13,7 @@
  const previousSave=savePreferences;savePreferences=function(){previousSave();persist().catch(e=>notify(e.message))};
  
  document.getElementById('minimize').onclick=async()=>{const animation=w.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'translateY(70px) scale(.85)'}],{duration:220,easing:'ease-in',fill:'forwards'});await animation.finished;await native.minimize();animation.cancel()};document.getElementById('close').onclick=()=>native.close();
- document.querySelectorAll('[data-i18n="version"]').forEach(el=>{if(el.parentElement)el.parentElement.lastChild.textContent=' '+info.version});
+ const launcherVersionValue=document.getElementById('launcherVersionValue');if(launcherVersionValue)launcherVersionValue.textContent=info.version;
  document.querySelectorAll('.side-version').forEach(el=>el.lastElementChild.textContent=info.version);
  function updateFolder(dir){const el=document.getElementById('gameFolderPath');if(el)el.textContent=dir}
  const folderButton=document.getElementById('openGameFolder');let folderPath=document.createElement('p');folderPath.id='gameFolderPath';folderPath.style.cssText='font-size:12px;color:var(--muted);overflow-wrap:anywhere';folderButton.parentElement.after(folderPath);updateFolder(info.gameDir);
