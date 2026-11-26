@@ -1,0 +1,3 @@
+const {contextBridge,ipcRenderer}=require('electron');
+const invoke=(name)=>(...args)=>ipcRenderer.invoke(name,...args);
+contextBridge.exposeInMainWorld('mao',{toggleMaximize:invoke('toggle-maximize'),confirmDelete:invoke('confirm-delete'),skinFace:invoke('skin-face'),ping:invoke('ping'),info:invoke('info'),save:invoke('save'),minimize:invoke('minimize'),close:invoke('close'),openFolder:invoke('open-folder'),chooseFolder:invoke('choose-folder'),launch:invoke('launch'),logs:invoke('logs'),checkUpdates:invoke('check-updates'),installUpdate:invoke('install-update'),onEvent:fn=>{const listener=(_,data)=>fn(data);ipcRenderer.on('event',listener);return()=>ipcRenderer.removeListener('event',listener)}});

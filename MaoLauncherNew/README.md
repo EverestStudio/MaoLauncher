@@ -1,26 +1,39 @@
 # MaoLauncher
 
-Electron-приложение с Python helper для Minecraft Java сервера `mc.maopickme.ru`.
+Electron desktop launcher for the MaoPickMe Minecraft server.
 
-## Разработка
+## Features
 
-Требуется Node.js 20 или новее.
+- Minecraft and Fabric installation and launch
+- Managed Fabric mod downloads with integrity checks
+- Multiple offline profiles and Minecraft skin preview
+- Live server player count and client ping
+- Embedded server map, settings, console, and onboarding tour
+- Windows NSIS build
+
+## Requirements
+
+- Node.js 22 or newer
+- Windows for native testing; Linux builds require Wine for NSIS
+
+## Development
 
 ```sh
-npm install
+npm ci
 npm start
 ```
 
-## Windows portable ZIP
+## Windows build
 
 ```sh
-npm run dist:win
+npm ci
+npm run build:win
 ```
 
-Кнопка «−» скрывает лаунчер в область уведомлений Windows. Вернуть окно можно нажатием на значок MaoLauncher или через пункт «Открыть MaoLauncher» в его меню. Кнопка «×» и пункт «Выход» завершают работу.
+The installer is written to `dist/`. Generated builds and installed dependencies are not committed.
 
-Лаунчер устанавливает Minecraft 26.2, Fabric и совместимые моды из Modrinth, а также Java 25 из Eclipse Temurin с проверкой SHA-256. Для игры на сервере используется офлайн-ник; сервер должен разрешать офлайн-аккаунты. Офлайн-профиль не подтверждает право владения Minecraft и не обеспечивает серверную авторизацию на лицензионных серверах.
+Current project version: **0.1.12**.
 
-`PlayerAnimationLibMerged` не опубликован как отдельный Fabric-мод для Minecraft 26.2; лаунчер ставит доступную библиотеку Player Animation Library, требуемую EmoteCraft. TPS требует серверного плагина/API. В текущем сетевом состоянии домен сервера не разрешается, поэтому онлайн и ping отображаются как недоступные.
+## GitHub Actions
 
-Новости и канал самообновления лаунчера требуют предоставленного сервером публичного источника; без него интерфейс показывает, что новости/обновления недоступны, и не выдумывает их.
+The workflow in `.github/workflows/release.yml` builds on Windows using manual dispatch (Artifacts) or a `vX.Y.Z` tag (signed GitHub Release). The tag must match `package.json`. A release requires the repository secret `MAO_RELEASE_PRIVATE_KEY`, matching the public key in `github-release.json`. No private key is included. See the bundle's `GITHUB-SETUP.md` for repository layout and initial setup.
