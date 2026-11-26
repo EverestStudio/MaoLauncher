@@ -1,5 +1,0 @@
-plugins { id 'base' }
-allprojects {
-    group = project.property('maven_group')
-    version = project.property('mod_version')
-}

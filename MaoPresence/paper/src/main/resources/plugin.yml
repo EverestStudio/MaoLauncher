@@ -1,5 +1,0 @@
-name: MaoPresence
-version: 1.0.0
-main: ru.maopickme.presence.MaoPresencePlugin
-api-version: '26.2'
-description: Adds a MaoLauncher marker to player names in the tab list.
