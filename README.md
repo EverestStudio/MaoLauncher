@@ -1,19 +1,26 @@
 # MaoLauncher
 
-Custom Minecraft launcher for MaoPickMe server.
+Репозиторий содержит исходники MaoLauncher, Windows-установщик и GitHub Actions для сборки релизов.
 
-## Repository layout
+## Проекты
 
-- `MaoLauncher-Setup/` — Windows bootstrapper source (C# / .NET 10).
-- `MaoLauncher/` — main Electron launcher source (to be added from the source archive).
-- `.github/workflows/` — automated Windows builds and release publishing (to be configured).
+- `MaoLauncherNew/` — актуальные исходники Electron-лаунчера. Содержимое соответствует исходному архиву MaoLauncher 2.0.
+- `MaoLauncher-Setup/` — исходники Windows bootstrapper. При запуске он проверяет GitHub Releases, скачивает новую версию лаунчера и проверяет SHA-256.
+- `.github/workflows/release.yml` — сборка лаунчера и установщика, упаковка ZIP, вычисление контрольной суммы и публикация GitHub Release.
 
-## Bootstrapper prototype
+## Выпуск новой версии
 
-The setup application checks the latest GitHub Release in this repository, downloads the Windows x64 ZIP and its SHA-256 sidecar, verifies the archive, extracts it to a staging directory, installs it under `%LOCALAPPDATA%\Programs\MaoLauncher`, creates a desktop shortcut when Windows Script Host is available, and starts the launcher.
+Создай тег с новой версией, например:
 
-See [MaoLauncher-Setup/README.md](MaoLauncher-Setup/README.md) for build instructions and the expected release asset names.
+```powershell
+git tag v2.0.0
+git push origin v2.0.0
+```
 
-## Current status
+GitHub Actions соберёт Windows x64, опубликует:
 
-The bootstrapper source is an initial prototype. No launcher release is published yet, and the main launcher source has not yet been imported into this repository. The bootstrapper therefore reports a clear message until a compatible GitHub Release exists.
+- `MaoLauncher-X.Y.Z-win-x64.zip` — файлы приложения;
+- `MaoLauncher-X.Y.Z-win-x64.zip.sha256` — SHA-256 архива;
+- `MaoLauncher-Setup.exe` — установщик/обновлятор.
+
+При следующем запуске установщик проверит последний релиз и обновит лаунчер, если версия новее установленной.
