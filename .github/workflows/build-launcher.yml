@@ -44,6 +44,7 @@ jobs:
           node --check game.cjs
           node --check ping.cjs
           node --check mods.cjs
+          node --check addons.cjs
         working-directory: MaoLauncherNew
 
       - name: Build Windows launcher
