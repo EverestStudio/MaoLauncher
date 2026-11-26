@@ -346,8 +346,24 @@ byId('homeNews')?.addEventListener('keydown', event => {
 newsDetailOverlay.querySelector('.newsDetailClose').addEventListener('click', () => newsDetailOverlay.classList.remove('open'));
 newsDetailOverlay.addEventListener('click', event => { if (event.target === newsDetailOverlay) newsDetailOverlay.classList.remove('open'); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') newsDetailOverlay.classList.remove('open'); });
-const sidebarToggle = byId('sidebarToggle');
-sidebarToggle?.addEventListener('click', async () => { const expanded = !document.body.classList.contains('sidebar-expanded'); document.body.classList.toggle('sidebar-expanded', expanded); sidebarToggle.setAttribute('aria-expanded', String(expanded)); sidebarToggle.setAttribute('aria-label', expanded ? 'Свернуть меню' : 'Развернуть меню'); sidebarToggle.title = expanded ? 'Свернуть меню' : 'Развернуть меню'; sidebarToggle.textContent = expanded ? '‹' : '☰'; try { await window.launcher.setSidebarExpanded(expanded); } catch (error) { notify(error.message, true); } });
+const sidebar = document.querySelector('aside');
+let sidebarExpanded = document.body.classList.contains('sidebar-expanded');
+let sidebarResizeQueue = Promise.resolve();
+function setSidebarExpanded(expanded) {
+  if (sidebarExpanded === expanded) return sidebarResizeQueue;
+  sidebarExpanded = expanded;
+  document.body.classList.toggle('sidebar-expanded', expanded);
+  sidebarResizeQueue = sidebarResizeQueue.then(() => window.launcher.setSidebarExpanded(expanded)).catch(error => {
+    if (sidebarExpanded === expanded) {
+      sidebarExpanded = !expanded;
+      document.body.classList.toggle('sidebar-expanded', !expanded);
+    }
+    notify(error.message, true);
+  });
+  return sidebarResizeQueue;
+}
+sidebar?.addEventListener('mouseenter', () => setSidebarExpanded(true));
+sidebar?.addEventListener('mouseleave', () => setSidebarExpanded(false));
 const TWITCH_STREAMERS = [{ name: 'niriska', url: 'https://www.twitch.tv/niriska' }, { name: 'similar_cav', url: 'https://www.twitch.tv/similar_cav' }, { name: 'tomskiybtw', url: 'https://www.twitch.tv/tomskiybtw' }];
 let twitchRefreshPromise = null;
 async function readTwitchStreamer(streamer, status) {
