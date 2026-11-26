@@ -26,7 +26,7 @@ jobs:
         run: |
           $inputVersion = $env:INPUT_VERSION.Trim()
           $version = $inputVersion.TrimStart('v', 'V')
-          if ($version -notmatch '^\\d+\\.\\d+\\.\\d+$') {
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
             throw "Version must use semantic format X.Y.Z, for example 2.0.0."
           }
           $tag = "v$version"
@@ -39,7 +39,7 @@ jobs:
           $latestJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" 2>$null
           if ($LASTEXITCODE -eq 0 -and $latestJson) {
             $latest = ($latestJson | ConvertFrom-Json).tag_name.TrimStart('v', 'V')
-            if ($latest -match '^\\d+\\.\\d+\\.\\d+$' -and [version]$version -le [version]$latest) {
+            if ($latest -match '^\d+\.\d+\.\d+$' -and [version]$version -le [version]$latest) {
               throw "Version $version must be greater than the latest published version $latest."
             }
           }
