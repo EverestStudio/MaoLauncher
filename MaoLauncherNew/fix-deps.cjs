@@ -2,3 +2,4 @@ const fs=require('fs'),path=require('path');const file=path.join(__dirname,'node
 require('./scripts/desktop-controls.cjs');
 require('./scripts/addons-profile.cjs');
 require('./scripts/community.cjs');
+require('./scripts/onboarding.cjs');
