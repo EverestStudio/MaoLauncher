@@ -38,7 +38,8 @@
       "ui/**/*",
       "assets/**/*",
       "mods.cjs",
-      "mods-manifest.json"
+      "mods-manifest.json",
+      "addons.cjs"
     ],
     "win": {
       "target": "nsis",
