@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "MaoLauncherNew/**"
+      - "MaoLauncher-Setup/**"
       - ".github/workflows/build-launcher.yml"
   push:
     branches: [main]
@@ -55,5 +56,35 @@ jobs:
         with:
           name: MaoLauncher-windows
           path: MaoLauncherNew/dist/**
+          if-no-files-found: error
+          retention-days: 14
+
+
+  build-setup:
+    name: Build MaoLauncher Setup installer
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore Setup
+        run: dotnet restore MaoLauncher-Setup/MaoLauncher.Setup.csproj --runtime win-x64
+
+      - name: Build Setup
+        run: dotnet build MaoLauncher-Setup/MaoLauncher.Setup.csproj --configuration Release --no-restore
+
+      - name: Publish Windows x64 installer
+        run: dotnet publish MaoLauncher-Setup/MaoLauncher.Setup.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore -p:PublishSingleFile=true
+
+      - name: Upload Setup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MaoLauncher-Setup-win-x64
+          path: MaoLauncher-Setup/bin/Release/net10.0-windows/win-x64/publish/
           if-no-files-found: error
           retention-days: 14
