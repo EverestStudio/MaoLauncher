@@ -22,6 +22,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           $inputVersion = $env:INPUT_VERSION.Trim()
           $version = $inputVersion.TrimStart('v', 'V')
