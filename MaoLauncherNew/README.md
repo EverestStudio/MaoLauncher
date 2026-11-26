@@ -4,6 +4,9 @@ Electron desktop launcher for the MaoPickMe Minecraft server.
 
 ## Features
 
+- One-click Minecraft Java Edition **26.2** launch with Fabric Loader and bundled Java 25
+- First launch automatically downloads the official game files, Fabric libraries, assets, and required runtime
+
 - Minecraft and Fabric installation and launch
 - Managed Fabric mod downloads with integrity checks
 - Multiple offline profiles and Minecraft skin preview
@@ -32,7 +35,9 @@ npm run build:win
 
 The installer is written to `dist/`. Generated builds and installed dependencies are not committed.
 
-Current project version: **0.1.12**.
+Current project version: **1.4.10**.
+
+Before publishing, `npm run test:game` performs a clean installation preflight for Minecraft 26.2, validates Fabric, checks Java 25, and generates the launch arguments.
 
 ## GitHub Actions
 
