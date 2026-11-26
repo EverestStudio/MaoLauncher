@@ -1,12 +1,6 @@
 name: Build and publish MaoLauncher
 
 on:
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Release tag, for example v1.0.6"
-        required: true
-        default: "v1.1.7"
   push:
     tags:
       - "v*"
@@ -26,85 +20,73 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Set launcher version from release tag
+      - name: Set launcher version from tag
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
-          if (!$tag) { $tag = "${{ github.ref_name }}" }
+          $tag = $env:GITHUB_REF_NAME
           $version = $tag.TrimStart('v', 'V')
           if ($version -notmatch '^\d+\.\d+\.\d+$') {
-            throw "Release tag must look like v1.2.3."
+            throw "Release tag must look like v2.0.0."
           }
-          npm pkg set "version=$version" --prefix MaoLauncher
+          npm version $version --no-git-tag-version --prefix MaoLauncherNew
+
+      - name: Install launcher dependencies
+        working-directory: MaoLauncherNew
+        run: npm ci
+
+      - name: Check JavaScript syntax
+        working-directory: MaoLauncherNew
+        shell: pwsh
+        run: |
+          node --check main.cjs
+          node --check preload.cjs
+          node --check game.cjs
+          node --check ping.cjs
+          node --check mods.cjs
+
+      - name: Build Windows x64 launcher
+        working-directory: MaoLauncherNew
+        run: npm run build:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Package portable launcher and calculate checksum
+        shell: pwsh
+        working-directory: MaoLauncherNew
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $archiveName = "MaoLauncher-$version-win-x64.zip"
+          $archivePath = "dist/$archiveName"
+          if (!(Test-Path "dist/win-unpacked/MaoLauncher.exe")) {
+            throw "MaoLauncher.exe was not produced by electron-builder."
+          }
+          Compress-Archive -Path "dist/win-unpacked/*" -DestinationPath $archivePath -Force
+          $hash = (Get-FileHash $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $archiveName" | Set-Content -Path "$archivePath.sha256" -NoNewline
+          "LAUNCHER_ARCHIVE=$((Resolve-Path $archivePath).Path)" >> $env:GITHUB_ENV
+          "LAUNCHER_CHECKSUM=$((Resolve-Path "$archivePath.sha256").Path)" >> $env:GITHUB_ENV
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
-      - name: Check launcher source
+      - name: Build MaoLauncher Setup
         shell: pwsh
         run: |
-          if (!(Test-Path "MaoLauncher/package.json")) {
-            throw "Missing MaoLauncher/package.json. Import the launcher source into the MaoLauncher/ directory first."
-          }
-          if (!(Test-Path "MaoLauncher/src/main.js")) {
-            throw "Missing MaoLauncher/src/main.js."
+          dotnet publish MaoLauncher-Setup/MaoLauncher.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/setup
+          if (!(Test-Path "artifacts/setup/MaoLauncher-Setup.exe")) {
+            throw "MaoLauncher-Setup.exe was not produced."
           }
 
-      - name: Prepare embedded Python runtime
-        shell: pwsh
-        run: |
-          $runtime = "MaoLauncher/python/runtime"
-          New-Item -ItemType Directory -Force -Path $runtime | Out-Null
-          $zip = Join-Path $env:RUNNER_TEMP "python-3.12.10-embed-amd64.zip"
-          Invoke-WebRequest "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip" -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $runtime -Force
-
-      - name: Install npm dependencies
-        working-directory: MaoLauncher
-        run: npm install
-
-      - name: Check JavaScript syntax
-        working-directory: MaoLauncher
-        shell: pwsh
-        run: |
-          node --check src/main.js
-          node --check src/preload.js
-          node --check src/renderer.js
-
-      - name: Build Windows launcher ZIP
-        working-directory: MaoLauncher
-        run: npm run dist:win -- --x64
-
-      - name: Calculate launcher checksum
-        shell: pwsh
-        run: |
-          $archive = Get-ChildItem "MaoLauncher/dist/MaoLauncher-*-win-x64.zip" | Select-Object -First 1
-          if (!$archive) { throw "electron-builder did not produce the expected Windows x64 ZIP." }
-          $hash = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $($archive.Name)" | Set-Content -NoNewline "$($archive.FullName).sha256"
-          "LAUNCHER_ARCHIVE=$($archive.FullName)" >> $env:GITHUB_ENV
-          "LAUNCHER_CHECKSUM=$($archive.FullName).sha256" >> $env:GITHUB_ENV
-
-      - name: Publish standalone setup EXE
-        run: >
-          dotnet publish MaoLauncher-Setup/MaoLauncher.Setup.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -o artifacts/setup
-
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
-          if (!$tag) { $tag = "${{ github.ref_name }}" }
-          gh release view $tag *> $null
+          $tag = $env:GITHUB_REF_NAME
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --clobber
-          } else {
-            gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --title "MaoLauncher $tag" --notes "Automated Windows x64 build of MaoLauncher and its installer."
+            throw "Release $tag already exists. Use a new version tag; existing releases are never overwritten."
           }
+          gh release create $tag "$env:LAUNCHER_ARCHIVE" "$env:LAUNCHER_CHECKSUM" "artifacts/setup/MaoLauncher-Setup.exe" --repo $env:GITHUB_REPOSITORY --title "MaoLauncher $tag" --notes "Automated Windows x64 release of MaoLauncher and its auto-updating installer." --latest
