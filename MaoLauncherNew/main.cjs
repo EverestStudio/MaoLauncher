@@ -1,7 +1,7 @@
 const {app,BrowserWindow,ipcMain,dialog,shell,Tray,Menu,nativeImage,screen}=require('electron');
 const path=require('node:path'),fs=require('node:fs/promises'),os=require('node:os');
 const {pingServer}=require('./ping.cjs');
-const {launchGame}=require('./game.cjs');const {autoUpdater}=require('electron-updater');
+const {launchGame}=require('./game.cjs');const {searchAddons,installAddon}=require('./addons.cjs');const {autoUpdater}=require('electron-updater');
 let win,tray,settings={},busy=false,game=null,logs=[],updateReady=false;
 const release=require('./release.json');
 if(process.env.MAO_TEST_HOME)app.setPath('userData',process.env.MAO_TEST_HOME);
@@ -30,7 +30,7 @@ if(!app.requestSingleInstanceLock({readyFile:process.env.MAO_READY_FILE}))app.qu
  register('open-folder',async()=>{await fs.mkdir(settings.gameDir,{recursive:true});const err=await shell.openPath(settings.gameDir);if(err)throw Error(err)});
  register('choose-folder',async()=>{if(busy||game)throw Error('Дождись завершения игры или загрузки');const result=await dialog.showOpenDialog(win,{title:'Папка Minecraft',defaultPath:settings.gameDir,properties:['openDirectory','createDirectory']});if(!result.canceled){settings.gameDir=result.filePaths[0];await save()}return settings.gameDir});
  register('ping',async()=>{try{return {ms:await pingServer()}}catch(e){return {ms:null,error:e.message}}});
- register('logs',()=>logs.join('\n'));register('launch',async()=>{if(busy||game)throw Error('Игра уже запускается или работает');const profile=settings.profile;if(!profile||profile.type!=='offline')throw Error('Сначала создай офлайн-профиль');busy=true;try{game=await launchGame({root:settings.gameDir,dataRoot,name:profile.name,memory:Math.min(32768,Math.max(512,Number(settings.memory)||4096)),args:String(settings.args||'')},data=>event({type:'progress',...data}),log,()=>{game=null;event({type:'game-exit'})});event({type:'game-start'});return {started:true}}catch(e){log('Ошибка запуска: '+e.message);event({type:'launch-error',message:e.message});throw e}finally{busy=false}});
+ register('logs',()=>logs.join('\n'));register('search-addons',async(type,query)=>searchAddons(type,query));register('install-addon',async(type,projectId)=>{if(busy||game)throw Error('Дождись завершения игры или другой загрузки');busy=true;try{return await installAddon(settings.gameDir,type,projectId,data=>event({type:'addon-progress',...data}))}finally{busy=false}});register('launch',async()=>{if(busy||game)throw Error('Игра уже запускается или работает');const profile=settings.profile;if(!profile||profile.type!=='offline')throw Error('Сначала создай офлайн-профиль');busy=true;try{game=await launchGame({root:settings.gameDir,dataRoot,name:profile.name,memory:Math.min(32768,Math.max(512,Number(settings.memory)||4096)),args:String(settings.args||'')},data=>event({type:'progress',...data}),log,()=>{game=null;event({type:'game-exit'})});event({type:'game-start'});return {started:true}}catch(e){log('Ошибка запуска: '+e.message);event({type:'launch-error',message:e.message});throw e}finally{busy=false}});
  register('check-updates',checkUpdates);register('install-update',()=>{if(!updateReady||busy||game)throw Error('Обновление пока недоступно или игра запущена');autoUpdater.quitAndInstall(false,true)});
  autoUpdater.autoDownload=true;autoUpdater.autoInstallOnAppQuit=false;
  if(release.updateUrl){if(!/^https:\/\//.test(release.updateUrl))throw Error('Update URL must use HTTPS');autoUpdater.setFeedURL({provider:'generic',url:release.updateUrl});}
