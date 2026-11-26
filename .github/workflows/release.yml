@@ -56,7 +56,17 @@ jobs:
 
       - name: Set launcher version
         shell: pwsh
-        run: npm version "$env:RELEASE_VERSION" --no-git-tag-version --prefix MaoLauncherNew
+        run: |
+          $packagePath = "MaoLauncherNew/package.json"
+          $currentVersion = (Get-Content $packagePath -Raw | ConvertFrom-Json).version
+          if ($currentVersion -eq $env:RELEASE_VERSION) {
+            Write-Host "Launcher version is already $currentVersion; skipping npm version."
+          } else {
+            npm version "$env:RELEASE_VERSION" --no-git-tag-version --prefix MaoLauncherNew
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to set launcher version to $env:RELEASE_VERSION."
+            }
+          }
 
       - name: Install launcher dependencies
         working-directory: MaoLauncherNew
