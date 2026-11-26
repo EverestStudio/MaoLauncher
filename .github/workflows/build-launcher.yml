@@ -45,6 +45,11 @@ jobs:
           node --check ping.cjs
           node --check mods.cjs
           node --check addons.cjs
+          node --check check-game.cjs
+        working-directory: MaoLauncherNew
+
+      - name: Validate Minecraft 26.2 installation and launch arguments
+        run: npm run test:game
         working-directory: MaoLauncherNew
 
       - name: Build Windows launcher
