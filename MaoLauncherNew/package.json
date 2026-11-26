@@ -1,7 +1,7 @@
 {
   "name": "maolauncher",
   "productName": "MaoLauncher",
-  "version": "0.1.12",
+  "version": "1.4.8",
   "description": "MaoPickMe Minecraft launcher",
   "author": "MaoPickMe",
   "main": "main.cjs",
