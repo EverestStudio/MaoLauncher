@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MaoLauncher-Setup</AssemblyName>
-    <ApplicationIcon>../MaoLauncher/src/assets/mao-icon.ico</ApplicationIcon>
+    <ApplicationIcon>../MaoLauncherNew/assets/icon.ico</ApplicationIcon>
     <RootNamespace>MaoLauncher.Setup</RootNamespace>
   </PropertyGroup>
 
@@ -17,16 +17,13 @@
   <ItemGroup>
     <EmbeddedResource Include="installer.html"
                       LogicalName="MaoLauncher.Setup.installer.html" />
-    <EmbeddedResource Include="..\MaoLauncher\src\assets\background.mp4"
-                      Link="background.mp4"
-                      LogicalName="MaoLauncher.Setup.background.mp4" />
-    <EmbeddedResource Include="..\MaoLauncher\src\assets\background_main.jpg"
+    <EmbeddedResource Include="../MaoLauncherNew/assets/backgrounds/scene-1.png"
                       Link="background_main.jpg"
                       LogicalName="MaoLauncher.Setup.background_main.jpg" />
-    <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.ico"
+    <EmbeddedResource Include="../MaoLauncherNew/assets/icon.ico"
                       Link="mao-icon.ico"
                       LogicalName="MaoLauncher.Setup.mao-icon.ico" />
-    <EmbeddedResource Include="../MaoLauncher/src/assets/mao-icon.png"
+    <EmbeddedResource Include="../MaoLauncherNew/assets/icon.png"
                       Link="mao-icon.png"
                       LogicalName="MaoLauncher.Setup.mao-icon.png" />
   </ItemGroup>
