@@ -1,4 +1,0 @@
-Options -Indexes
-<Files "news-config.php">
-    Require all denied
-</Files>
