@@ -1,6 +1,10 @@
 (async()=>{
  if(!window.mao)return;
- const native=window.mao,info=await native.info();
+ const native=window.mao;
+ let info={version:'1.4.10',settings:{}};
+ try{info=await native.info()||info}catch(error){notify('Не удалось прочитать настройки лаунчера: '+error.message)}
+ info.settings=info.settings&&typeof info.settings==='object'?info.settings:{};
+ const appVersion=String(info.version||info.appVersion||'1.4.10');
  let profiles=Array.isArray(info.settings.profiles)?info.settings.profiles:[];
  if(info.settings.profile&&!profiles.some(p=>p.name===info.settings.profile.name))profiles.push(info.settings.profile);
 
@@ -12,15 +16,15 @@
  async function persist(){let profile=null;try{profile=JSON.parse(localStorage.getItem(profileKey)||'null')}catch{}await native.save({...preferences,profile,profiles})}
  const previousSave=savePreferences;savePreferences=function(){previousSave();persist().catch(e=>notify(e.message))};
  
- document.getElementById('minimize').onclick=async()=>{const animation=w.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'translateY(70px) scale(.85)'}],{duration:220,easing:'ease-in',fill:'forwards'});await animation.finished;await native.minimize();animation.cancel()};document.getElementById('close').onclick=()=>native.close();
- const launcherVersionValue=document.getElementById('launcherVersionValue');if(launcherVersionValue)launcherVersionValue.textContent='Установлена: '+info.version+(info.latestVersion?' · Последняя: '+info.latestVersion:'');
- document.querySelectorAll('.side-version').forEach(el=>el.lastElementChild.textContent=info.version);
+ document.getElementById('minimize').onclick=()=>native.minimize().catch(e=>notify(e.message));document.getElementById('close').onclick=()=>native.close();
+ const launcherVersionValue=document.getElementById('launcherVersionValue');if(launcherVersionValue)launcherVersionValue.textContent='Установлена: '+appVersion+(info.latestVersion?' · Последняя: '+info.latestVersion:'');
+ document.querySelectorAll('.side-version').forEach(el=>el.lastElementChild.textContent=appVersion);
  function updateFolder(dir){const el=document.getElementById('gameFolderPath');if(el)el.textContent=dir}
  const folderButton=document.getElementById('openGameFolder');let folderPath=document.createElement('p');folderPath.id='gameFolderPath';folderPath.style.cssText='font-size:12px;color:var(--muted);overflow-wrap:anywhere';folderButton.parentElement.after(folderPath);updateFolder(info.gameDir);
  for(const id of ['openGameFolder','changeGameFolder']){const old=document.getElementById(id);old.replaceWith(old.cloneNode(true))}
  document.getElementById('openGameFolder').onclick=()=>native.openFolder().catch(e=>notify(e.message));document.getElementById('changeGameFolder').onclick=()=>native.chooseFolder().then(updateFolder).catch(e=>notify(e.message));
  words.en.folderHelp='Game files are stored in the selected folder.';words.ru.folderHelp='Файлы игры хранятся в выбранной папке.';words.en.autosave='Settings are saved automatically.';words.ru.autosave='Настройки сохраняются автоматически.';words.ru.minimizeHelp='Выбранный способ применяется при нажатии кнопки сворачивания.';words.en.minimizeHelp='Applies when you press the minimize button.';applyLanguage();
- document.getElementById('openConsole').onclick=async()=>{document.getElementById('consoleOutput').textContent=await native.logs();consoleDialog.showModal()};
+ document.getElementById('openConsole').onclick=async()=>{const output=document.getElementById('consoleOutput');output.textContent=await native.logs();consoleDialog.showModal();output.scrollTop=output.scrollHeight};
  const gameLabel=launchButton.innerHTML;let running=false;
  function resetButton(){launchButton.disabled=false;launchButton.innerHTML=gameLabel}
  function stage(text,percent){launchPanel.hidden=false;document.getElementById('launchStage').textContent=text;document.getElementById('launchPercent').textContent=percent==null?'':percent+'%';document.getElementById('launchProgressFill').style.width=(percent||0)+'%';document.getElementById('launchProgressBar').setAttribute('aria-valuenow',String(percent||0));document.getElementById('launchProgressNote').textContent='Minecraft 26.2 · Fabric · mc.maopickme.ru'}
@@ -45,11 +49,11 @@
  function newProfile(){closeProfiles();showProfile();document.querySelector('[data-mode="offline"]').click();document.getElementById('offlineForm').reset();document.getElementById('profileError').textContent='';showFaceHint('Введи ник для просмотра скина');document.getElementById('nickname').focus()}
  function renderProfiles(){selector.replaceChildren();const title=document.createElement('h2');title.textContent='Мои профили';selector.append(title);for(const p of profiles){const row=document.createElement('div');row.className='profile-row';const button=document.createElement('button');button.className='profile-choice';button.type='button';button.setAttribute('aria-pressed',String(selected()?.name===p.name));const avatar=document.createElement('img');avatar.src='https://mc-heads.net/avatar/'+encodeURIComponent(p.name)+'/64';avatar.alt='';const label=document.createElement('span');label.textContent=p.name;const status=document.createElement('small');status.textContent='Оффлайн';label.append(status);button.append(avatar,label);button.onclick=async()=>{localStorage.setItem(profileKey,JSON.stringify(p));renderProfile();renderProfiles();closeProfiles();try{await persist();notify('Выбран профиль '+p.name)}catch(e){notify(e.message)}};const remove=document.createElement('button');remove.className='profile-delete';remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Удалить профиль '+p.name);remove.onclick=async()=>{if(running){notify('Дождись завершения игры или загрузки');return}if(!await confirmDeleteProfile(p.name))return;profiles=profiles.filter(item=>item.name!==p.name);if(selected()?.name===p.name){if(profiles.length)localStorage.setItem(profileKey,JSON.stringify(profiles[0]));else localStorage.removeItem(profileKey);renderProfile()}renderProfiles();await persist();notify('Профиль удалён')};row.append(button,remove);selector.append(row)}const add=document.createElement('button');add.type='button';add.className='profile-create';add.textContent='+ Создать новый';add.onclick=newProfile;selector.append(add)}
  document.getElementById('offlineForm').onsubmit=async e=>{e.preventDefault();const input=document.getElementById('nickname'),error=document.getElementById('profileError');if(!input.checkValidity()){input.reportValidity();return}const profile={name:input.value.trim(),type:'offline'};if(profiles.some(p=>p.name.toLowerCase()===profile.name.toLowerCase())){error.textContent='Профиль с таким ником уже есть. Выбери его в списке.';return}if(profiles.length>=100){error.textContent='Можно сохранить до 100 профилей.';return}profiles.push(profile);localStorage.setItem(profileKey,JSON.stringify(profile));renderProfile();renderProfiles();error.textContent='';try{await persist();notify('Профиль создан')}catch(e){notify(e.message)}};
- document.querySelector('.profile-note').textContent='Профили сохраняются на этом компьютере. Ник: 3–16 латинских букв, цифр или подчёркивание.';
+ const profileNote=document.querySelector('.profile-note');if(profileNote)profileNote.textContent='Ник: 3–16 латинских букв, цифр или подчёркивание.';
  let skinRequest=0,skinTimer;const skinPreview=document.getElementById('skinPreview');function showFaceHint(text){skinPreview.replaceChildren();const hint=document.createElement('span');hint.className='skin-placeholder';hint.textContent=text;skinPreview.append(hint)}
  document.getElementById('nickname').addEventListener('input',()=>{clearTimeout(skinTimer);const request=++skinRequest,name=document.getElementById('nickname').value.trim();if(!/^[A-Za-z0-9_]{3,16}$/.test(name)){showFaceHint('Введи ник для просмотра скина');return}showFaceHint('Поиск скина…');skinTimer=setTimeout(async()=>{const face=await native.skinFace(name);if(request!==skinRequest)return;if(!face){showFaceHint('Лицензионный скин не найден');return}const img=document.createElement('img');img.alt='Лицо скина '+name;img.src=face;skinPreview.replaceChildren(img)},500)});
  renderProfiles();
- const mapFrame=document.getElementById('serverMapFrame');function loadMap(){if(!mapFrame.src)mapFrame.src=mapFrame.dataset.src}document.querySelector('[data-page="map"]').addEventListener('click',loadMap);document.getElementById('mapRefresh').onclick=()=>{loadMap();mapFrame.src=mapFrame.dataset.src};
+ const mapFrame=document.getElementById('serverMapFrame'),mapUrl='http://135.181.126.154:25602/';function loadMap(){if(!mapFrame.getAttribute('src'))mapFrame.src=mapUrl}document.querySelector('[data-page="map"]').addEventListener('click',loadMap);document.getElementById('mapRefresh').onclick=()=>{mapFrame.src=mapUrl+'?refresh='+Date.now()};const openMapExternal=document.getElementById('openMapExternal');if(openMapExternal)openMapExternal.onclick=()=>native.openMap().catch(e=>notify(e.message));
 
 
  // Add-ons catalogue: Modrinth-backed mods, resource packs and shaders.
