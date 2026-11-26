@@ -161,7 +161,7 @@ sidebarToggle.addEventListener('click',()=>{sidebarCollapsed=!sidebarCollapsed;a
 const applyLanguageWithSidebar=applyLanguage;applyLanguage=function(){applyLanguageWithSidebar();applySidebar()};applySidebar();
 
 // Native Minecraft Server List Ping: status, online players and measured game latency.
-const serverStats=document.getElementById('serverStats'),serverPlayers=document.getElementById('serverPlayers'),serverPing=document.getElementById('serverPing'),serverStatusValue=document.getElementById('serverStatusValue');
+const serverStats=document.getElementById('serverStats'),serverPlayers=document.getElementById('serverPlayers'),serverPing=document.getElementById('serverPing'),serverTps=document.getElementById('serverTps'),serverStatusValue=document.getElementById('serverStatusValue');
 let statusBusy=false,statusTimer=null,statusState='loading',statusTime=null,statusReportedVersion='';
 function renderServerState(){
  const en=preferences.language==='en';
@@ -169,6 +169,7 @@ function renderServerState(){
  serverStats.dataset.state=statusState;serverStatusValue.textContent=messages[statusState];
  const hint=config.serverAddress+' · '+messages[statusState]+(statusTime?' · '+statusTime.toLocaleTimeString(en?'en-GB':'ru-RU'):'');
  serverStatusValue.title=serverPlayers.title=serverPing.title=hint;
+ serverTps.title=en?'TPS is not provided by the public server status API':'TPS не публикуется сервером через публичный API статуса';
  document.getElementById('serverStatusDot').title=hint;
 }
 async function refreshServerStatus(){
@@ -184,13 +185,13 @@ async function refreshServerStatus(){
    const unit=document.createElement('small');unit.textContent=' мс';serverPing.append(unit);
    statusReportedVersion=data.version||'';statusTime=new Date();
   }else{
-   statusState='offline';serverPlayers.textContent='—';serverPing.textContent='—';statusTime=new Date();
+   statusState='offline';serverPlayers.textContent='—';serverPing.textContent='—';serverTps.textContent='—';statusTime=new Date();
   }
  }catch{
-  statusState='error';serverPlayers.textContent='—';serverPing.textContent='—';statusTime=null;
+  statusState='error';serverPlayers.textContent='—';serverPing.textContent='—';serverTps.textContent='—';statusTime=null;
  }finally{statusBusy=false;renderServerState()}
 }
-function scheduleServerStatus(){clearInterval(statusTimer);statusTimer=null;if(!document.hidden){refreshServerStatus();statusTimer=setInterval(refreshServerStatus,30000)}}
+function scheduleServerStatus(){clearInterval(statusTimer);statusTimer=null;if(!document.hidden){refreshServerStatus();statusTimer=setInterval(refreshServerStatus,3000)}}
 document.addEventListener('visibilitychange',scheduleServerStatus);window.addEventListener('online',refreshServerStatus);
 const applyLanguageWithServer=applyLanguage;applyLanguage=function(){applyLanguageWithServer();renderServerState()};
 renderServerState();scheduleServerStatus();
