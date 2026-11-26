@@ -21,6 +21,7 @@
  document.querySelectorAll('.side-version').forEach(el=>el.lastElementChild.textContent=appVersion);
  function updateFolder(dir){const value=String(dir||'');const el=document.getElementById('gameFolderPath');if(el)el.textContent=value;const input=document.getElementById('gameDirectory');if(input)input.value=value}
  updateFolder(info.gameDir);
+ for(const id of ['openGameFolder','changeGameFolder']){const old=document.getElementById(id);old.replaceWith(old.cloneNode(true))}
  document.getElementById('openGameFolder').onclick=()=>native.openFolder().catch(e=>notify('Не удалось открыть папку игры: '+e.message));document.getElementById('changeGameFolder').onclick=()=>native.chooseFolder().then(dir=>{updateFolder(dir);return persist()}).catch(e=>notify('Не удалось изменить папку игры: '+e.message));
  words.en.folderHelp='Game files are stored in the selected folder.';words.ru.folderHelp='Файлы игры хранятся в выбранной папке.';words.en.autosave='Settings are saved automatically.';words.ru.autosave='Настройки сохраняются автоматически.';words.ru.minimizeHelp='Выбранный способ применяется при нажатии кнопки сворачивания.';words.en.minimizeHelp='Applies when you press the minimize button.';applyLanguage();
  document.getElementById('openConsole').onclick=async()=>{const output=document.getElementById('consoleOutput');output.textContent=await native.logs();consoleDialog.showModal();output.scrollTop=output.scrollHeight};
