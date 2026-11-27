@@ -18,7 +18,7 @@ const steps=[
  {page:'support',target:'#supportPage',title:'Поддержка',text:'Здесь находится форма обращения. Если отправка ещё не подключена, напиши администратору в личные сообщения и приложи лог или скриншот ошибки.'},
  {page:'settings',tab:'game',target:'#gameSettings',title:'Настройки игры',text:'Выбери папку Minecraft, объём памяти и дополнительные аргументы запуска. Здесь же можно открыть консоль. Оставляй часть оперативной памяти для Windows.'},
  {page:'settings',tab:'interface',target:'#interfaceSettings',title:'Оформление и снежинки',text:'Выбери тему и язык интерфейса, включи или выключи снежинки. Они падают на заднем плане и не перекрывают кнопки.'},
- {page:'settings',tab:'launcher',target:'#launcherSettings',title:'Поведение лаунчера',text:'Настрой сворачивание в трей или панель задач. Здесь же можно посмотреть версию и повторно пройти обучение. Настройки сохраняются автоматически.'},
+ {page:'settings',tab:'launcher',target:'#launcherSettings',title:'Поведение лаунчера',text:'Настрой сворачивание в трей или панель задач. Здесь же можно посмотреть версию лаунчера. Настройки сохраняются автоматически.'},
  {page:'home',target:'#sidebarToggle',title:'Больше места для игры',text:'Эта кнопка сворачивает левую панель до иконок. Повторное нажатие вернёт подписи. Всё готово — приятной игры на MaoPickMe!'}
 ];
 const layer=document.createElement('div');layer.className='tour-layer';layer.hidden=true;
@@ -46,5 +46,5 @@ function start(){if(!layer.hidden)return;previousFocus=document.activeElement;pr
 next.onclick=()=>index===steps.length-1?finish():(index++,render());back.onclick=()=>{if(index){index--;render()}};
 layer.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();finish()}else if(e.key==='Tab'){e.preventDefault();const buttons=[...card.querySelectorAll('button:not(:disabled)')],i=buttons.indexOf(document.activeElement);buttons[(i+(e.shiftKey?-1:1)+buttons.length)%buttons.length].focus()}});
 window.addEventListener('resize',place);document.addEventListener('scroll',place,true);
-let attempts=0;const ready=setInterval(()=>{if(!q('#profilePopup')||!q('#ourStreamers')||!q('#launcherSettings')){if(++attempts>150)clearInterval(ready);return}clearInterval(ready);let repeat=q('#restartTour');if(!repeat){repeat=document.createElement('button');repeat.id='restartTour';repeat.type='button';repeat.className='settings-action';repeat.textContent='Пройти обучение';q('#launcherSettings').append(repeat)}repeat.onclick=start;let done=false;try{done=localStorage.getItem(key)==='done'}catch{}if(!done)setTimeout(start,500)},100);
+let attempts=0;const ready=setInterval(()=>{if(!q('#profilePopup')||!q('#ourStreamers')||!q('#launcherSettings')){if(++attempts>150)clearInterval(ready);return}clearInterval(ready);let done=false;try{done=localStorage.getItem(key)==='done'}catch{}if(!done)setTimeout(start,500)},100);
 })();

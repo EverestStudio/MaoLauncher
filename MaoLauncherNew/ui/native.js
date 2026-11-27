@@ -1,10 +1,10 @@
 (async()=>{
  if(!window.mao)return;
  const native=window.mao;
- let info={version:'1.4.10',settings:{}};
+ let info={version:'',settings:{}};
  try{info=await native.info()||info}catch(error){notify('Не удалось прочитать настройки лаунчера: '+error.message)}
  info.settings=info.settings&&typeof info.settings==='object'?info.settings:{};
- const appVersion=String(info.version||info.appVersion||'1.4.10');
+ const appVersion=String(info.appVersion||info.version||'—');
  let profiles=Array.isArray(info.settings.profiles)?info.settings.profiles:[];
  if(info.settings.profile&&!profiles.some(p=>p.name===info.settings.profile.name))profiles.push(info.settings.profile);
 
@@ -13,11 +13,13 @@
  memoryRange.value=memoryInput.value=preferences.memory;launchArgs.value=preferences.args;
  for(const [id,key] of [['themeSelect','theme'],['languageSelect','language'],['minimizeSelect','minimize']])document.getElementById(id).value=preferences[key];snowToggle.checked=preferences.snow;
  applyTheme();applyLanguage();applySnow();renderProfile();
- async function persist(){let profile=null;try{profile=JSON.parse(localStorage.getItem(profileKey)||'null')}catch{}await native.save({...preferences,profile,profiles})}
- const previousSave=savePreferences;savePreferences=function(){previousSave();persist().catch(e=>notify(e.message))};
+ async function persist(){let profile=null;try{profile=JSON.parse(localStorage.getItem(profileKey)||'null')}catch{}await native.save({...preferences,sidebarCollapsed,profile,profiles})}
+ if(typeof info.settings.sidebarCollapsed==='boolean'){sidebarCollapsed=info.settings.sidebarCollapsed;applySidebar()}
+ document.getElementById('sidebarToggle').addEventListener('click',()=>persist().catch(e=>notify(e.message)));
+ const previousSaveSidebar=true;const previousSave=savePreferences;savePreferences=function(){previousSave();persist().catch(e=>notify(e.message))};
  
- document.getElementById('minimize').onclick=()=>native.minimize().catch(e=>notify(e.message));document.getElementById('close').onclick=()=>native.close();
- const launcherVersionValue=document.getElementById('launcherVersionValue');if(launcherVersionValue)launcherVersionValue.textContent='Установлена: '+appVersion+(info.latestVersion?' · Последняя: '+info.latestVersion:'');
+ document.getElementById('minimize').onclick=async()=>{try{await persist();await native.minimize()}catch(e){notify(e.message)}};document.getElementById('close').onclick=()=>native.close();
+ const launcherVersionValue=document.getElementById('launcherVersionValue');if(launcherVersionValue)launcherVersionValue.textContent=appVersion;
  document.querySelectorAll('.side-version').forEach(el=>el.lastElementChild.textContent=appVersion);
  function updateFolder(dir){const value=String(dir||'');const el=document.getElementById('gameFolderPath');if(el)el.textContent=value;const input=document.getElementById('gameDirectory');if(input)input.value=value}
  updateFolder(info.gameDir);
@@ -29,8 +31,8 @@
  function resetButton(){launchButton.disabled=false;launchButton.innerHTML=gameLabel}
  function stage(text,percent){launchPanel.hidden=false;document.getElementById('launchStage').textContent=text;document.getElementById('launchPercent').textContent=percent==null?'':percent+'%';document.getElementById('launchProgressFill').style.width=(percent||0)+'%';document.getElementById('launchProgressBar').setAttribute('aria-valuenow',String(percent||0));document.getElementById('launchProgressNote').textContent='Minecraft 26.2 · Fabric · mc.maopickme.ru'}
  launchButton.onclick=async()=>{if(running)return;running=true;launchButton.disabled=true;stage('Подготовка запуска',0);try{await persist();await native.launch()}catch(e){stage('Не удалось запустить игру',null);notify(e.message);resetButton();running=false}};
- native.onEvent(data=>{if(data.type==='progress')stage(data.stage,data.percent);if(data.type==='game-start'){stage('Minecraft запущен',100);launchButton.textContent='ИГРА ЗАПУЩЕНА'}if(data.type==='game-exit'){running=false;resetButton();stage('Игра завершена',100)}if(data.type==='launch-error'){stage('Ошибка запуска — открой консоль',null);running=false;resetButton()}if(data.type==='log'){const output=document.getElementById('consoleOutput');output.textContent=(output.textContent+'\n'+data.text).slice(-80000);output.scrollTop=output.scrollHeight}if(data.type==='update'){document.getElementById('nativeUpdateStatus').textContent=data.message;if(data.ready)document.getElementById('installNativeUpdate').hidden=false}if(data.type==='addon-progress')addonMessage(data.stage+(data.percent!=null?' · '+data.percent+'%':''))});
- const about=document.getElementById('launcherSettings');const updates=document.createElement('div');updates.className='setting-card native-update-card';updates.innerHTML='<p id="nativeUpdateStatus"></p><div class="native-update-actions"><button class="settings-action" id="checkNativeUpdate">Проверить обновления</button><button class="settings-action" id="installNativeUpdate" hidden>Установить и перезапустить</button></div>';about.append(updates);document.getElementById('nativeUpdateStatus').textContent=info.updateConfigured?'Обновления подключены':'Сервер обновлений будет подключён в следующем этапе.';document.getElementById('checkNativeUpdate').onclick=()=>native.checkUpdates().catch(e=>notify(e.message));document.getElementById('installNativeUpdate').onclick=()=>native.installUpdate().catch(e=>notify(e.message));
+ native.onEvent(data=>{if(data.type==='progress')stage(data.stage,data.percent);if(data.type==='game-start'){launchPanel.hidden=true;launchButton.textContent='ИГРА ЗАПУЩЕНА'}if(data.type==='game-exit'){running=false;resetButton();launchPanel.hidden=true}if(data.type==='launch-error'){stage('Ошибка запуска — открой консоль',null);running=false;resetButton()}if(data.type==='log'){const output=document.getElementById('consoleOutput');output.textContent=(output.textContent+'\n'+data.text).slice(-80000);output.scrollTop=output.scrollHeight}if(data.type==='addon-progress')addonMessage(data.stage+(data.percent!=null?' · '+data.percent+'%':''))});
+
 
  // Keep historical cards in the document as hidden templates.
  const progress=document.getElementById('launchProgress');document.querySelector('.hero-actions').append(progress);
@@ -51,20 +53,21 @@
  document.getElementById('offlineForm').onsubmit=async e=>{e.preventDefault();const input=document.getElementById('nickname'),error=document.getElementById('profileError');if(!input.checkValidity()){input.reportValidity();return}const profile={name:input.value.trim(),type:'offline'};if(profiles.some(p=>p.name.toLowerCase()===profile.name.toLowerCase())){error.textContent='Профиль с таким ником уже есть. Выбери его в списке.';return}if(profiles.length>=100){error.textContent='Можно сохранить до 100 профилей.';return}profiles.push(profile);localStorage.setItem(profileKey,JSON.stringify(profile));renderProfile();renderProfiles();error.textContent='';try{await persist();notify('Профиль создан')}catch(e){notify(e.message)}};
  const profileNote=document.querySelector('.profile-note');if(profileNote)profileNote.textContent='Ник: 3–16 латинских букв, цифр или подчёркивание.';
  let skinRequest=0,skinTimer;const skinPreview=document.getElementById('skinPreview');function showFaceHint(text){skinPreview.replaceChildren();const hint=document.createElement('span');hint.className='skin-placeholder';hint.textContent=text;skinPreview.append(hint)}
- document.getElementById('nickname').addEventListener('input',()=>{clearTimeout(skinTimer);const request=++skinRequest,name=document.getElementById('nickname').value.trim();if(!/^[A-Za-z0-9_]{3,16}$/.test(name)){showFaceHint('Введи ник для просмотра скина');return}showFaceHint('Поиск скина…');skinTimer=setTimeout(async()=>{const face=await native.skinFace(name);if(request!==skinRequest)return;if(!face){showFaceHint('Лицензионный скин не найден');return}const img=document.createElement('img');img.alt='Лицо скина '+name;img.src=face;skinPreview.replaceChildren(img)},500)});
+ window.dispatchEvent(new Event('mao-skin-ready'));
  renderProfiles();
  const mapFrame=document.getElementById('serverMapFrame'),mapUrl='http://135.181.126.154:25602/';function loadMap(){if(!mapFrame.getAttribute('src'))mapFrame.src=mapUrl}document.querySelector('[data-page="map"]').addEventListener('click',loadMap);document.getElementById('mapRefresh').onclick=()=>{mapFrame.src=mapUrl+'?refresh='+Date.now()};
 
 
  // Add-ons catalogue: Modrinth-backed mods, resource packs and shaders.
  const addonGrid=document.getElementById('addonsGrid'),addonStatus=document.getElementById('addonsStatus'),addonSearch=document.getElementById('addonsSearch');
- let addonCategory='resourcepack',addonRequest=0;
+ let addonCategory='resourcepack',addonRequest=0;let installedAddons={};
  const addonLabels={resourcepack:'ресурс-паки',mod:'моды',shader:'шейдеры'};
  function addonMessage(message){addonStatus.textContent=message}
  function addonEmpty(message){addonGrid.replaceChildren();const box=document.createElement('div');box.className='addons-empty';box.textContent=message;addonGrid.append(box)}
  function renderAddonCards(items){
    addonGrid.replaceChildren();
    if(!items.length){addonEmpty('Ничего не найдено. Попробуй изменить поисковый запрос.');return}
+   const category=addonCategory;
    for(const item of items){
      const card=document.createElement('article');card.className='addon-card';
      const icon=document.createElement('div');icon.className='addon-icon';
@@ -76,20 +79,59 @@
      const actions=document.createElement('div');actions.className='addon-actions';
      const source=document.createElement('span');source.textContent='Minecraft 26.2'+(addonCategory==='mod'?' · Fabric':'');
      const install=document.createElement('button');install.type='button';install.className='addon-install';install.textContent='Установить';
-     install.onclick=async()=>{install.disabled=true;install.textContent='Загрузка…';addonMessage('Устанавливаем «'+item.title+'»…');try{const result=await native.installAddon(addonCategory,item.id);install.textContent='Установлено';addonMessage('«'+item.title+'» установлено в папку '+result.folder+'.')}catch(e){install.disabled=false;install.textContent='Повторить';addonMessage(e.message);notify(e.message)}};
+     const key=category+':'+item.id;function updateAction(){install.disabled=false;install.textContent=installedAddons[key]?'Удалить':'Установить';install.classList.toggle('is-installed',!!installedAddons[key])}updateAction();
+     install.onclick=async()=>{const removing=!!installedAddons[key];install.disabled=true;install.textContent=removing?'Удаление…':'Загрузка…';try{if(removing){await native.removeAddon(category,item.id);delete installedAddons[key];addonMessage('«'+item.title+'» удалено.')}else{const result=await native.installAddon(category,item.id);installedAddons[key]=result;addonMessage('«'+item.title+'» установлено в папку '+result.folder+'.')}}catch(e){addonMessage(e.message);notify(e.message)}finally{updateAction()}};
      actions.append(source,install);copy.append(title,description,meta,actions);card.append(icon,copy);addonGrid.append(card);
    }
  }
- async function loadAddons(){
-   const request=++addonRequest,query=addonSearch.value.trim();
-   if(addonCategory==='skin'){addonMessage('Скины игроков');addonGrid.replaceChildren();const note=document.createElement('div');note.className='addons-skin-note';const strong=document.createElement('strong');strong.textContent='Скины Minecraft';const p=document.createElement('p');p.textContent='Скины привязываются к аккаунту Minecraft и не устанавливаются как моды или ресурс-паки. Для офлайн-профиля можно посмотреть скин по никнейму при создании профиля. Подключение выбора и применения скинов из каталога добавим отдельно.';note.append(strong,p);addonGrid.append(note);return}
-   addonMessage(query?'Поиск: '+query:'Загружаем '+addonLabels[addonCategory]+'…');addonEmpty('Загружаем каталог…');
-   try{const items=await native.searchAddons(addonCategory,query);if(request!==addonRequest)return;renderAddonCards(items);addonMessage('Найдено: '+items.length+' · Совместимость: Minecraft 26.2'+(addonCategory==='mod'?' / Fabric':''))}catch(e){if(request!==addonRequest)return;addonEmpty('Не удалось загрузить каталог. Проверь подключение к интернету и попробуй ещё раз.');addonMessage(e.message)}
+ const pagination=document.createElement('nav');pagination.className='addons-pagination';pagination.setAttribute('aria-label','Страницы дополнений');pagination.hidden=true;addonGrid.after(pagination);
+ let addonPage=1,addonPages=1;
+ function renderPagination(){
+   pagination.replaceChildren();pagination.hidden=addonPages<2;if(pagination.hidden)return;
+   const add=(label,page,disabled=false)=>{const button=document.createElement('button');button.type='button';button.textContent=label;button.disabled=disabled;button.setAttribute('aria-label',/^\d+$/.test(label)?'Страница '+label:label);if(page===addonPage&&/^\d+$/.test(label))button.setAttribute('aria-current','page');button.onclick=()=>loadAddons(page,true);pagination.append(button)};
+   add('Назад',addonPage-1,addonPage===1);
+   const pages=[...new Set([1,addonPages,addonPage-1,addonPage,addonPage+1].filter(n=>n>=1&&n<=addonPages))].sort((a,b)=>a-b);
+   let previous=0;for(const page of pages){if(previous&&page-previous>1){const gap=document.createElement('span');gap.textContent='…';pagination.append(gap)}add(String(page),page);previous=page}
+   add('Вперёд',addonPage+1,addonPage===addonPages);
  }
- document.querySelectorAll('[data-addon-category]').forEach(button=>button.addEventListener('click',()=>{addonCategory=button.dataset.addonCategory;document.querySelectorAll('[data-addon-category]').forEach(b=>{const active=b===button;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active))});loadAddons()}));
- document.getElementById('addonsSearchButton').onclick=loadAddons;
- addonSearch.addEventListener('keydown',e=>{if(e.key==='Enter')loadAddons()});
- addonSearch.addEventListener('search',loadAddons);
+ function renderInstalled(){
+   addonGrid.replaceChildren();
+   const table=document.createElement('div');table.className='installed-columns';table.setAttribute('aria-label','Установленные дополнения');
+   const query=addonSearch.value.trim().toLocaleLowerCase('ru');let count=0;
+   for(const [type,title] of [['mod','Моды'],['shader','Шейдеры'],['resourcepack','Ресурс-паки']]){
+     const column=document.createElement('section');column.className='installed-column';const heading=document.createElement('h2');heading.textContent=title;column.append(heading);
+     const list=document.createElement('ul');column.append(list);
+     const entries=Object.values(installedAddons).filter(item=>item.type===type&&(!query||(String(item.title||'')+' '+item.filename).toLocaleLowerCase('ru').includes(query))).sort((a,b)=>String(a.title||a.filename).localeCompare(String(b.title||b.filename),'ru'));
+     count+=entries.length;
+     for(const item of entries){
+       const row=document.createElement('li');const text=document.createElement('div');const name=document.createElement('strong');name.textContent=item.title||item.filename;const file=document.createElement('small');file.textContent=item.filename;file.title=item.filename;text.append(name,file);
+       const remove=document.createElement('button');remove.type='button';remove.className='addon-install is-installed';remove.textContent='Удалить';remove.setAttribute('aria-label','Удалить '+(item.title||item.filename));
+       remove.onclick=async()=>{remove.disabled=true;remove.textContent='Удаление…';try{await native.removeAddon(item.type,item.projectId);installedAddons=await native.listAddons();if(addonCategory==='installed'){renderInstalled();addonMessage('Удалено: '+(item.title||item.filename))}}catch(e){addonMessage(e.message);notify(e.message)}finally{remove.disabled=false;remove.textContent='Удалить'}};
+       row.append(text,remove);list.append(row);
+     }
+     if(!entries.length){const empty=document.createElement('li');empty.className='installed-empty';empty.textContent=query?'Ничего не найдено':'Пока ничего не установлено';list.append(empty)}
+     table.append(column);
+   }
+   addonGrid.append(table);addonMessage('Установлено: '+count+(query?' · Поиск: '+addonSearch.value.trim():''));
+ }
+ async function loadAddons(page=1,scroll=false){
+   const request=++addonRequest,query=addonSearch.value.trim(),category=addonCategory;
+   addonPage=Number.isInteger(page)&&page>0?page:1;pagination.hidden=true;pagination.replaceChildren();addonGrid.setAttribute('aria-busy','true');
+   try{
+     if(category==='installed'){addonEmpty('Загружаем установленные дополнения…');installedAddons=await native.listAddons();if(request!==addonRequest)return;renderInstalled();return}
+     if(category==='skin'){addonMessage('Скины игроков');addonGrid.replaceChildren();const note=document.createElement('div');note.className='addons-skin-note';note.textContent='Скины привязываются к аккаунту Minecraft. Предпросмотр скина по никнейму доступен при создании профиля. Каталог скинов пока в разработке.';addonGrid.append(note);return}
+     addonMessage(query?'Поиск: '+query:'Загружаем '+addonLabels[category]+'…');addonEmpty('Загружаем каталог…');
+     const [result,installed]=await Promise.all([native.searchAddons(category,query,addonPage),native.listAddons()]);if(request!==addonRequest)return;
+     installedAddons=installed;addonPages=Math.max(1,Math.ceil(result.total/result.pageSize));
+     if(addonPage>addonPages){await loadAddons(addonPages,scroll);return}
+     renderAddonCards(result.items);renderPagination();addonMessage('Найдено: '+result.total+' · Страница '+addonPage+' из '+addonPages+' · Minecraft 26.2'+(category==='mod'?' / Fabric':''));
+     if(scroll)document.getElementById('addonsPage').scrollIntoView({block:'start',behavior:'instant'});
+   }catch(e){if(request!==addonRequest)return;addonEmpty('Не удалось загрузить каталог. Проверь подключение и попробуй ещё раз.');addonMessage(e.message)}finally{if(request===addonRequest)addonGrid.setAttribute('aria-busy','false')}
+ }
+ document.querySelectorAll('[data-addon-category]').forEach(button=>button.addEventListener('click',()=>{addonCategory=button.dataset.addonCategory;document.querySelectorAll('[data-addon-category]').forEach(b=>{const active=b===button;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active))});loadAddons(1)}));
+ document.getElementById('addonsSearchButton').onclick=()=>loadAddons(1);
+ addonSearch.addEventListener('keydown',e=>{if(e.key==='Enter')loadAddons(1)});
+ addonSearch.addEventListener('search',()=>loadAddons(1));
  loadAddons();
  await persist();
 })().catch(e=>{console.error(e);if(typeof notify==='function')notify('Ошибка подключения функций приложения: '+e.message)});
