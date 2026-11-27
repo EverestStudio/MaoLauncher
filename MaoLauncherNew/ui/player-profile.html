@@ -112,6 +112,13 @@
     .field-help { color:var(--dim); font-size:10px; }
     .dialog-actions { display:flex; justify-content:flex-end; gap:9px; padding-top:5px; }
     .edit-status { min-height:15px; color:var(--green); font-size:11px; }
+    .player-links { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .player-link { display:flex; align-items:center; gap:10px; min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:9px; background:#ffffff05; color:var(--text); text-decoration:none; transition:.18s; }
+    .player-link:hover { border-color:#ffad4b70; background:var(--accent-soft); }
+    .player-link-icon { display:grid; place-items:center; width:30px; height:30px; flex:none; border-radius:8px; background:var(--accent-soft); color:var(--accent); font-size:12px; font-weight:800; }
+    .player-link-name { overflow:hidden; font-size:11px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+    .links-empty { grid-column:1/-1; padding:13px; border:1px dashed var(--line); border-radius:9px; color:var(--muted); font-size:11px; }
+    @media (max-width:480px) { .player-links { grid-template-columns:1fr; } }
 
     @media (max-width:760px) {
       body { padding:18px; }
@@ -201,6 +208,16 @@
           </div>
         </section>
 
+        <section class="panel" id="linksPanel">
+          <div class="section-head">
+            <h2>Ссылки игрока</h2>
+            <span class="section-hint">Социальные сети и контакты</span>
+          </div>
+          <div id="playerLinks" class="player-links">
+            <div class="links-empty">Пока ссылки не добавлены. Нажми «Редактировать профиль», чтобы указать свои страницы.</div>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="section-head">
             <h2>Достижения</h2>
@@ -271,6 +288,22 @@
         <input id="editSkin" name="skin" type="url" placeholder="https://example.com/skin.png">
         <span class="field-help">Если оставить пустым, аватар и скин будут подбираться по игровому нику.</span>
       </div>
+      <div class="edit-field">
+        <label for="editDiscord">Discord (ссылка на профиль или сервер)</label>
+        <input id="editDiscord" name="discord" type="url" placeholder="https://discord.gg/...">
+      </div>
+      <div class="edit-field">
+        <label for="editTelegram">Telegram</label>
+        <input id="editTelegram" name="telegram" type="url" placeholder="https://t.me/username">
+      </div>
+      <div class="edit-field">
+        <label for="editYoutube">YouTube</label>
+        <input id="editYoutube" name="youtube" type="url" placeholder="https://youtube.com/@username">
+      </div>
+      <div class="edit-field">
+        <label for="editVk">ВКонтакте</label>
+        <input id="editVk" name="vk" type="url" placeholder="https://vk.com/username">
+      </div>
       <div class="dialog-actions">
         <button class="button" type="button" id="cancelEdit">Отмена</button>
         <button class="button primary" type="submit">Сохранить изменения</button>
@@ -307,6 +340,7 @@
       skin.src = profile.skin || 'https://mc-heads.net/body/' + encodeURIComponent(playerName) + '/180';
       skin.alt = 'Скин игрока ' + playerName;
       document.querySelector('.skin-caption span:last-child').textContent = playerName;
+      renderPlayerLinks(profile);
       let bio = document.getElementById('playerBio');
       if (profile.bio) {
         if (!bio) {
@@ -321,12 +355,49 @@
       }
     }
 
+    function renderPlayerLinks(profile) {
+      const links = [
+        ['discord', 'Discord', 'D'],
+        ['telegram', 'Telegram', 'T'],
+        ['youtube', 'YouTube', '▶'],
+        ['vk', 'ВКонтакте', 'VK']
+      ].filter(([key]) => profile[key]);
+      const container = document.getElementById('playerLinks');
+      container.replaceChildren();
+      if (!links.length) {
+        const empty = document.createElement('div');
+        empty.className = 'links-empty';
+        empty.textContent = 'Пока ссылки не добавлены. Нажми «Редактировать профиль», чтобы указать свои страницы.';
+        container.appendChild(empty);
+        return;
+      }
+      for (const [key, label, icon] of links) {
+        const link = document.createElement('a');
+        link.className = 'player-link';
+        link.href = profile[key];
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        const symbol = document.createElement('span');
+        symbol.className = 'player-link-icon';
+        symbol.textContent = icon;
+        const name = document.createElement('span');
+        name.className = 'player-link-name';
+        name.textContent = label;
+        link.append(symbol, name);
+        container.appendChild(link);
+      }
+    }
+
     function openEditor() {
       const profile = loadPlayerProfile();
       document.getElementById('editNickname').value = profile.nickname || nick;
       document.getElementById('editBio').value = profile.bio || '';
       document.getElementById('editAvatar').value = profile.avatar || '';
       document.getElementById('editSkin').value = profile.skin || '';
+      document.getElementById('editDiscord').value = profile.discord || '';
+      document.getElementById('editTelegram').value = profile.telegram || '';
+      document.getElementById('editYoutube').value = profile.youtube || '';
+      document.getElementById('editVk').value = profile.vk || '';
       document.getElementById('editStatus').textContent = '';
       profileDialog.showModal();
     }
@@ -342,7 +413,11 @@
         nickname: document.getElementById('editNickname').value.trim(),
         bio: document.getElementById('editBio').value.trim(),
         avatar: document.getElementById('editAvatar').value.trim(),
-        skin: document.getElementById('editSkin').value.trim()
+        skin: document.getElementById('editSkin').value.trim(),
+        discord: document.getElementById('editDiscord').value.trim(),
+        telegram: document.getElementById('editTelegram').value.trim(),
+        youtube: document.getElementById('editYoutube').value.trim(),
+        vk: document.getElementById('editVk').value.trim()
       };
       try {
         localStorage.setItem(profileStorageKey, JSON.stringify(profile));
