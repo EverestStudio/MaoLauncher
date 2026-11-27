@@ -1,7 +1,7 @@
 {
   "name": "maolauncher",
   "productName": "MaoLauncher",
-  "version": "1.4.10",
+  "version": "1.4.16",
   "description": "MaoPickMe Minecraft launcher",
   "author": "MaoPickMe",
   "main": "main.cjs",
@@ -41,12 +41,13 @@
       "assets/**/*",
       "mods.cjs",
       "mods-manifest.json",
-      "addons.cjs"
+      "addons.cjs",
+      "news-feed.cjs"
     ],
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "signExecutable": false
     },
     "nsis": {
