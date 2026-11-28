@@ -1,0 +1,37 @@
+name: Build MaoLauncherBadge
+
+on:
+  push:
+    paths:
+      - "MaoLauncherBadge/**"
+      - ".github/workflows/build-mao-badge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Build plugin
+        working-directory: MaoLauncherBadge
+        run: mvn --batch-mode --no-transfer-progress clean package
+
+      - name: Upload plugin JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: MaoLauncherBadge
+          path: MaoLauncherBadge/target/mao-launcher-badge-1.0.0-SNAPSHOT.jar
+          if-no-files-found: error
+          retention-days: 14
