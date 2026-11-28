@@ -39,6 +39,12 @@ if(!app.requestSingleInstanceLock({readyFile:process.env.MAO_READY_FILE}))app.qu
  autoUpdater.autoDownload=true;autoUpdater.autoInstallOnAppQuit=false;
  if(release.updateUrl){if(!/^https:\/\//.test(release.updateUrl))throw Error('Update URL must use HTTPS');autoUpdater.setFeedURL({provider:'generic',url:release.updateUrl});}
  autoUpdater.on('checking-for-update',()=>event({type:'update',message:'Проверка обновлений…'}));autoUpdater.on('update-not-available',()=>event({type:'update',message:'Установлена последняя версия'}));autoUpdater.on('download-progress',p=>event({type:'update',message:`Обновление лаунчера: ${Math.floor(p.percent)}%`}));autoUpdater.on('update-downloaded',()=>{updateReady=true;event({type:'update',ready:true,message:'Обновление загружено. Можно перезапустить лаунчер.'})});autoUpdater.on('error',e=>{log('Обновление: '+e.message);event({type:'update',message:'Не удалось проверить обновления'})});
+// Aggregate open launchers only. New anonymous session on every start.
+if (app.isPackaged && !process.env.MAO_DISABLE_PRESENCE) {
+ const session=require('node:crypto').randomBytes(16).toString('hex');
+ const pulse=()=>fetch('https://maopickme.ru/mao-presence.php',{method:'POST',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify({session}),signal:AbortSignal.timeout(6000)}).then(r=>r.body?.cancel()).catch(()=>{});
+ pulse();const timer=setInterval(pulse,45000);timer.unref();app.once('before-quit',()=>clearInterval(timer));
+}
  await win.loadFile(path.join(__dirname,'ui/index.html'));log('MaoLauncher '+app.getVersion());if(release.updateUrl)checkUpdates().catch(e=>log(e.message));
  }).catch(e=>{dialog.showErrorBox('MaoLauncher',e.message);app.quit()});
  app.on('window-all-closed',()=>app.quit());app.on('before-quit',()=>tray?.destroy());
