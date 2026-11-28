@@ -1,0 +1,13 @@
+# Public Ed25519 key in Base64 (X.509 encoded).
+# Keep the matching PRIVATE key only on your trusted authentication backend.
+# Never put the private key in the launcher or in this server config.
+public-key: "PASTE_BASE64_X509_PUBLIC_KEY_HERE"
+
+badge:
+  # Text displayed before the player's name above their head and in TAB.
+  symbol: "◆"
+  color: "LIGHT_PURPLE"
+
+security:
+  # Maximum accepted lifetime of a signed launcher ticket.
+  max-ticket-lifetime-seconds: 180
