@@ -22,7 +22,6 @@ import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -33,7 +32,7 @@ public final class MaoLauncherBadge extends JavaPlugin implements Listener, Plug
 
     private final Map<UUID, String> previousTeams = new HashMap<>();
     private final Map<UUID, Component> previousListNames = new HashMap<>();
-    private final Set<String> usedNonces = new HashSet<>();
+    private final Map<String, Long> usedNonces = new HashMap<>();
 
     private Scoreboard scoreboard;
     private PublicKey verificationKey;
@@ -80,14 +79,25 @@ public final class MaoLauncherBadge extends JavaPlugin implements Listener, Plug
 
         badgeSymbol = getConfig().getString("badge.symbol", "◆");
         String colorName = getConfig().getString("badge.color", "LIGHT_PURPLE");
-        try {
-            badgeColor = NamedTextColor.NAMES.value(colorName.toLowerCase());
-            if (badgeColor == null) {
-                badgeColor = NamedTextColor.LIGHT_PURPLE;
-            }
-        } catch (Exception ignored) {
-            badgeColor = NamedTextColor.LIGHT_PURPLE;
-        }
+        badgeColor = switch (colorName.toUpperCase()) {
+            case "BLACK" -> NamedTextColor.BLACK;
+            case "DARK_BLUE" -> NamedTextColor.DARK_BLUE;
+            case "DARK_GREEN" -> NamedTextColor.DARK_GREEN;
+            case "DARK_AQUA" -> NamedTextColor.DARK_AQUA;
+            case "DARK_RED" -> NamedTextColor.DARK_RED;
+            case "DARK_PURPLE" -> NamedTextColor.DARK_PURPLE;
+            case "GOLD" -> NamedTextColor.GOLD;
+            case "GRAY" -> NamedTextColor.GRAY;
+            case "DARK_GRAY" -> NamedTextColor.DARK_GRAY;
+            case "BLUE" -> NamedTextColor.BLUE;
+            case "GREEN" -> NamedTextColor.GREEN;
+            case "AQUA" -> NamedTextColor.AQUA;
+            case "RED" -> NamedTextColor.RED;
+            case "LIGHT_PURPLE" -> NamedTextColor.LIGHT_PURPLE;
+            case "YELLOW" -> NamedTextColor.YELLOW;
+            case "WHITE" -> NamedTextColor.WHITE;
+            default -> NamedTextColor.LIGHT_PURPLE;
+        };
 
         maxTicketLifetimeSeconds = Math.max(30,
                 getConfig().getInt("security.max-ticket-lifetime-seconds", 180));
@@ -140,12 +150,13 @@ public final class MaoLauncherBadge extends JavaPlugin implements Listener, Plug
             String nonce = fields[2];
             long now = Instant.now().getEpochSecond();
 
+            usedNonces.entrySet().removeIf(entry -> entry.getValue() <= now);
             if (!ticketUuid.equals(player.getUniqueId())
                     || nonce.isBlank()
                     || nonce.length() > 96
                     || expiresAt <= now
                     || expiresAt > now + maxTicketLifetimeSeconds
-                    || usedNonces.contains(nonce)) {
+                    || usedNonces.containsKey(nonce)) {
                 return false;
             }
 
@@ -156,7 +167,7 @@ public final class MaoLauncherBadge extends JavaPlugin implements Listener, Plug
                 return false;
             }
 
-            usedNonces.add(nonce);
+            usedNonces.put(nonce, expiresAt);
             return true;
         } catch (Exception ignored) {
             return false;
