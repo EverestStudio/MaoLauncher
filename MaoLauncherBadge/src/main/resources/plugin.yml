@@ -1,0 +1,15 @@
+name: MaoLauncherBadge
+version: 1.0.0
+main: ru.maopickme.maobadge.MaoLauncherBadge
+api-version: '26.2'
+description: Displays a verified MaoLauncher badge above players and in TAB.
+author: MaoPickMe
+commands:
+  maobadge:
+    description: MaoLauncherBadge administration
+    usage: /maobadge reload
+    permission: maobadge.admin
+permissions:
+  maobadge.admin:
+    description: Allows reloading MaoLauncherBadge
+    default: op
